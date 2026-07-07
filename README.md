@@ -27,6 +27,17 @@ npm test           # vitest por workspace
 npm run build      # build por workspace (a partir da S3)
 ```
 
+## Variáveis de ambiente (server)
+
+| Variável | Default | Descrição |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | `production` faz bind só em `127.0.0.1` (Caddy é a entrada) |
+| `PORT` | `3000` | porta do Fastify |
+| `RHODES_DATA_DIR` | `C:\rhodes-data` | banco, fotos e logs — caminho absoluto, **recusa OneDrive** |
+
+O boot é fail-fast: env inválido derruba o processo com mensagem explicativa. As migrações
+(Drizzle, sempre aditivas) rodam automaticamente na subida, antes de aceitar conexões.
+
 ## Regras que não se negociam
 
 - **Dados NUNCA neste repo nem em pasta OneDrive**: banco SQLite e fotos vivem em
