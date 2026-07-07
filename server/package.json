@@ -1,0 +1,10 @@
+{
+  "name": "@rhodes/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend Fastify — API, agendador e acesso ao SQLite",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

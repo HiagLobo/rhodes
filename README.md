@@ -1,0 +1,39 @@
+# rhodes-app — Sistema de Gestão de Limpeza (Rhodes S.A / Porto do Recife)
+
+Plano mestre de limpeza digital do terminal de grãos: 39 procedimentos com agendamento híbrido
+(calendário + evento de navio), execução com foto antes/depois, vistoria e score 0–100.
+A arquitetura completa vive em `PESQUISA E ARQUITETURA - Sistema de Gestão de Limpeza.md`
+(raiz do workspace, fora deste repo) e o plano de execução em `waves/`.
+
+## Stack
+
+- `server/` — Fastify + TypeScript, SQLite (WAL) via better-sqlite3 + Drizzle (chega na S2)
+- `web/` — React + Vite + Mantine, PWA (chega na S3)
+- `shared/` — contratos Zod e enums de domínio compartilhados
+
+## Pré-requisitos
+
+- Node 24 LTS (ver `.nvmrc` — better-sqlite3 é módulo nativo, compilado contra esta versão)
+- npm 11+
+
+## Comandos
+
+```bash
+npm install        # instala os 3 workspaces
+npm run dev        # dev server+web (completo a partir da S3)
+npm run lint       # eslint em todo o repo
+npm run typecheck  # tsc --noEmit por workspace
+npm test           # vitest por workspace
+npm run build      # build por workspace (a partir da S3)
+```
+
+## Regras que não se negociam
+
+- **Dados NUNCA neste repo nem em pasta OneDrive**: banco SQLite e fotos vivem em
+  `RHODES_DATA_DIR` (default `C:\rhodes-data\`) — SQLite corrompe em pasta sincronizada.
+- Timestamps de negócio são sempre do servidor; trilha de auditoria é append-only (ALCOA+).
+- Ver skill `rhodes-executar-onda` para o padrão de execução (1 sessão = 1 Sx = 1 commit).
+
+## Deploy
+
+Runbook completo em `deploy/README-DEPLOY.md` (chega na S4).
