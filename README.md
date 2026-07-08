@@ -20,12 +20,15 @@ A arquitetura completa vive em `PESQUISA E ARQUITETURA - Sistema de Gestão de L
 
 ```bash
 npm install        # instala os 3 workspaces
-npm run dev        # dev server+web (completo a partir da S3)
+npm run dev        # server (tsx watch, :3000) + web (vite, :5173 com proxy /api) em paralelo
 npm run lint       # eslint em todo o repo
 npm run typecheck  # tsc --noEmit por workspace
 npm test           # vitest por workspace
-npm run build      # build por workspace (a partir da S3)
+npm run build      # build por workspace (web → web/dist)
 ```
+
+Em produção (`NODE_ENV=production`) o próprio Fastify serve `web/dist` com fallback SPA —
+um único processo entrega front e API; o Vite só existe em desenvolvimento.
 
 ## Variáveis de ambiente (server)
 
