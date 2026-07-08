@@ -7,3 +7,4 @@ export * from './catalogo.js';
 export * from './agendamento.js';
 export * from './navio.js';
 export * from './foto.js';
+export * from './justificativa.js';

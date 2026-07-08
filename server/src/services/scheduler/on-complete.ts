@@ -1,8 +1,15 @@
 import { eq } from 'drizzle-orm';
-import { dataRecife, diaDaSemana, somarDias, STATUS_ABERTOS } from '@rhodes/shared';
+import {
+  ADIAMENTO_POR_MOTIVO,
+  dataRecife,
+  diaDaSemana,
+  somarDias,
+  STATUS_ABERTOS,
+  type MotivoJustificativa,
+} from '@rhodes/shared';
 
 import type { Db } from '../../db/index.js';
-import { taskInstances, taskTemplates } from '../../db/schema.js';
+import { justificativas, taskInstances, taskTemplates } from '../../db/schema.js';
 import { audit } from '../../lib/audit.js';
 import { criarInstancia, type InstanciaRow, type TemplateRow } from './instancias.js';
 
@@ -124,5 +131,93 @@ export function onComplete(
     });
 
     return { concluida, statusFinal, proxima };
+  });
+}
+
+export type DadosJustificativa = {
+  motivo: MotivoJustificativa;
+  texto?: string | null;
+  fotoId?: number | null;
+};
+
+export type ResultadoJustificativa = {
+  justificada: InstanciaRow;
+  justificativaId: number;
+  proxima: InstanciaRow | null;
+};
+
+/**
+ * Justificar = conclusão SEM execução — pertence ao 1º ponto do motor (o agendamento
+ * continua vivendo em exatamente 3 pontos; leitura registrada no ESTADO da Onda 05).
+ * Transacional: fecha como MISSED (justificável, alimenta o score na Onda 08), grava a
+ * justificativa PENDENTE e reagenda a próxima para hoje + adiamento do MOTIVO — o
+ * impedimento manda na data, não a âncora (mesmo racional do reset total da SHIP).
+ */
+export function onJustify(
+  db: Db,
+  instanciaId: number,
+  dados: DadosJustificativa,
+  ator: Ator,
+  agora: Date,
+  ip?: string,
+): ResultadoJustificativa {
+  return db.transaction((tx) => {
+    const t = tx as unknown as Db;
+
+    const inst = t.select().from(taskInstances).where(eq(taskInstances.id, instanciaId)).get();
+    if (!inst) {
+      throw new ConclusaoInvalidaError('Instância não encontrada.');
+    }
+    if (!(STATUS_ABERTOS as readonly string[]).includes(inst.status)) {
+      throw new ConclusaoInvalidaError('Instância já fechada — nada para justificar.');
+    }
+
+    const template = t
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, inst.templateId))
+      .get()!;
+
+    const justificada = t
+      .update(taskInstances)
+      .set({ status: 'MISSED', finishedAt: agora })
+      .where(eq(taskInstances.id, inst.id))
+      .returning()
+      .get()!;
+
+    const justificativa = t
+      .insert(justificativas)
+      .values({
+        instanceId: inst.id,
+        motivo: dados.motivo,
+        texto: dados.texto ?? null,
+        fotoId: dados.fotoId ?? null,
+        criadoPorId: ator.id,
+      })
+      .returning()
+      .get()!;
+
+    let proxima: InstanciaRow | null = null;
+    if (template.ativo && (template.triggerType === 'CALENDAR' || template.triggerType === 'HYBRID')) {
+      const due = somarDias(dataRecife(agora), ADIAMENTO_POR_MOTIVO[dados.motivo]);
+      proxima = criarInstancia(t, template, { due });
+    }
+
+    audit(t, {
+      ator,
+      acao: 'INSTANCIA_JUSTIFICADA',
+      entidade: 'task_instances',
+      entidadeId: inst.id,
+      antes: { status: inst.status, dueDate: inst.dueDate },
+      depois: {
+        status: 'MISSED',
+        motivo: dados.motivo,
+        justificativaId: justificativa.id,
+        proximaDue: proxima?.dueDate ?? null,
+      },
+      ip,
+    });
+
+    return { justificada, justificativaId: justificativa.id, proxima };
   });
 }

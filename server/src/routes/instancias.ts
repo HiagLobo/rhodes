@@ -1,6 +1,7 @@
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
+  justificarSchema,
   overrideDueSchema,
   registrarParteSchema,
   somarDias,
@@ -8,6 +9,7 @@ import {
   type FotoResumo,
   type InstanciaDetalhe,
   type InstanciaResumo,
+  type JustificativaResumo,
   type ParteResumo,
 } from '@rhodes/shared';
 import { z } from 'zod';
@@ -16,6 +18,7 @@ import type { Db } from '../db/index.js';
 import {
   areas,
   execucaoPartes,
+  justificativas,
   metodoVersoes,
   photos,
   taskInstances,
@@ -24,7 +27,11 @@ import {
 } from '../db/schema.js';
 import { audit } from '../lib/audit.js';
 import { requireRole, requireUser } from '../lib/auth.js';
-import { ConclusaoInvalidaError, onComplete } from '../services/scheduler/on-complete.js';
+import {
+  ConclusaoInvalidaError,
+  onComplete,
+  onJustify,
+} from '../services/scheduler/on-complete.js';
 import {
   EvidenciaInvalidaError,
   parteCorrente,
@@ -202,6 +209,26 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
         criadoEm: r.parte.criadoEm.toISOString(),
       }));
 
+    const justificativa: JustificativaResumo | null = (() => {
+      const r = db
+        .select({ j: justificativas, criadoPor: users.login })
+        .from(justificativas)
+        .innerJoin(users, eq(justificativas.criadoPorId, users.id))
+        .where(eq(justificativas.instanceId, row.inst.id))
+        .get();
+      if (!r) return null;
+      return {
+        id: r.j.id,
+        instanceId: r.j.instanceId,
+        motivo: r.j.motivo as JustificativaResumo['motivo'],
+        texto: r.j.texto,
+        fotoId: r.j.fotoId,
+        status: r.j.status as JustificativaResumo['status'],
+        criadoPor: r.criadoPor,
+        criadoEm: r.j.criadoEm.toISOString(),
+      };
+    })();
+
     const detalhe: InstanciaDetalhe = {
       id: row.inst.id,
       templateId: row.inst.templateId,
@@ -224,8 +251,60 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
       partes,
       parteCorrente: parteCorrente(db, row.inst.id),
       tempoExecucaoSeg: tempoPorPartes(fotos.map(paraEvidencia)),
+      justificativa,
     };
     return reply.send(detalhe);
+  });
+
+  /**
+   * "Não foi possível realizar" — fecha como MISSED justificado e reagenda pelo motivo.
+   * A foto de impedimento é opcional, mas se vier tem de ser IMPEDIMENTO DESTA instância.
+   */
+  app.post('/api/instancias/:id/justificar', { preHandler: executa }, (req, reply) => {
+    const params = idParamSchema.safeParse(req.params);
+    const body = justificarSchema.safeParse(req.body);
+    if (!params.success) return reply.status(400).send({ erro: 'Dados inválidos.' });
+    if (!body.success) {
+      return reply
+        .status(400)
+        .send({ erro: body.error.issues[0]?.message ?? 'Dados inválidos.' });
+    }
+
+    if (body.data.fotoImpedimentoId !== undefined) {
+      const foto = db
+        .select()
+        .from(photos)
+        .where(eq(photos.id, body.data.fotoImpedimentoId))
+        .get();
+      if (!foto || foto.instanceId !== params.data.id || foto.tipo !== 'IMPEDIMENTO') {
+        return reply.status(400).send({ erro: 'Foto de impedimento inválida para esta tarefa.' });
+      }
+    }
+
+    try {
+      const r = onJustify(
+        db,
+        params.data.id,
+        {
+          motivo: body.data.motivo,
+          texto: body.data.texto ?? null,
+          fotoId: body.data.fotoImpedimentoId ?? null,
+        },
+        { id: req.user!.id, login: req.user!.login },
+        new Date(),
+        req.ip,
+      );
+      return reply.send({
+        statusFinal: 'MISSED',
+        justificativaId: r.justificativaId,
+        proximaDue: r.proxima?.dueDate ?? null,
+      });
+    } catch (err) {
+      if (err instanceof ConclusaoInvalidaError) {
+        return reply.status(409).send({ erro: err.message });
+      }
+      throw err;
+    }
   });
 
   /** Fechamento parcial multi-dia — exige evidência completa DA PARTE (imutável 3). */

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { Frequencia, TriggerType } from './catalogo.js';
 import type { FotoResumo } from './foto.js';
+import type { JustificativaResumo } from './justificativa.js';
 
 /**
  * Estados de uma instância de tarefa (Onda 03). OVERDUE é MATERIALIZADO pelo dailyJob —
@@ -125,4 +126,6 @@ export type InstanciaDetalhe = InstanciaResumo & {
   parteCorrente: number;
   /** Soma de max(DEPOIS)−min(ANTES) das partes com evidência completa; null sem par. */
   tempoExecucaoSeg: number | null;
+  /** Preenchida quando a instância foi fechada por "não foi possível realizar" (S3). */
+  justificativa: JustificativaResumo | null;
 };

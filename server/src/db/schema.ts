@@ -263,6 +263,32 @@ export const execucaoPartes = sqliteTable(
 );
 
 /**
+ * Justificativas estruturadas (Onda 05/S3) — "não foi possível realizar" com motivo por
+ * código. 1 por instância (UNIQUE); nasce PENDENTE e NUNCA se reescreve — a decisão do
+ * gestor (Onda 07) preenche decidido_* via UPDATE auditado de status, não edição do registro.
+ */
+export const justificativas = sqliteTable('justificativas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  instanceId: integer('instance_id')
+    .notNull()
+    .unique()
+    .references(() => taskInstances.id),
+  motivo: text('motivo').notNull(),
+  texto: text('texto'),
+  fotoId: integer('foto_id').references(() => photos.id),
+  status: text('status').notNull().default('PENDENTE'),
+  criadoPorId: integer('criado_por_id')
+    .notNull()
+    .references(() => users.id),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  decididoPorId: integer('decidido_por_id').references(() => users.id),
+  decididoEm: integer('decidido_em', { mode: 'timestamp' }),
+  decisaoObs: text('decisao_obs'),
+});
+
+/**
  * Trilha de auditoria (Onda 01/S2) — APPEND-ONLY, imposto por triggers na migração 0002
  * (UPDATE/DELETE → RAISE(ABORT)). Toda ação significativa entra aqui via o helper audit().
  * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").
