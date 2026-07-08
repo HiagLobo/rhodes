@@ -108,6 +108,10 @@ export const taskInstances = sqliteTable(
     executanteId: integer('executante_id').references(() => users.id),
     startedAt: integer('started_at', { mode: 'timestamp' }),
     finishedAt: integer('finished_at', { mode: 'timestamp' }),
+    // Onda 06: preenchida quando esta ocorrência É o retrabalho de uma execução reprovada.
+    reworkOfInstanceId: integer('rework_of_instance_id').references(
+      (): AnySQLiteColumn => taskInstances.id,
+    ),
     criadoEm: integer('criado_em', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -286,6 +290,34 @@ export const justificativas = sqliteTable('justificativas', {
   decididoPorId: integer('decidido_por_id').references(() => users.id),
   decididoEm: integer('decidido_em', { mode: 'timestamp' }),
   decisaoObs: text('decisao_obs'),
+});
+
+/**
+ * Inspeções de vistoria (Onda 06/S1) — 1 por execução (UNIQUE; reinspecionar = nova execução),
+ * linha IMUTÁVEL (não existe rota de edição). Reprovação aponta o retrabalho gerado.
+ * A "assinatura" é a re-autenticação por senha no ato (S2) + esta linha + audit_log.
+ */
+export const inspections = sqliteTable('inspections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  instanceId: integer('instance_id')
+    .notNull()
+    .unique()
+    .references(() => taskInstances.id),
+  resultado: text('resultado').notNull(),
+  vistoriadorId: integer('vistoriador_id')
+    .notNull()
+    .references(() => users.id),
+  motivo: text('motivo'),
+  severidade: text('severidade'),
+  texto: text('texto'),
+  fotoId: integer('foto_id').references(() => photos.id),
+  amostral: integer('amostral', { mode: 'boolean' }).notNull().default(false),
+  retrabalhoInstanceId: integer('retrabalho_instance_id').references(
+    (): AnySQLiteColumn => taskInstances.id,
+  ),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
 });
 
 /**
