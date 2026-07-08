@@ -4,6 +4,7 @@ import { loadEnv } from '../lib/env.js';
 import { hashSenha } from '../lib/passwords.js';
 import { createDb, runMigrations, type Db } from './index.js';
 import { users } from './schema.js';
+import { seedCatalogo } from './seed-catalogo.js';
 
 /**
  * Usuários sintéticos de DESENVOLVIMENTO (imutável 10: seed-first, nunca dado pessoal real).
@@ -40,7 +41,11 @@ if (executadoDiretamente) {
   const { db, sqlite } = createDb(env.RHODES_DATA_DIR);
   runMigrations(db);
   await seedDev(db);
+  seedCatalogo(db);
   const total = sqlite.prepare('SELECT COUNT(*) as n FROM users').get() as { n: number };
-  console.log(`seed:dev ok — ${total.n} usuários no banco de desenvolvimento`);
+  const t = sqlite.prepare('SELECT COUNT(*) as n FROM task_templates').get() as { n: number };
+  console.log(
+    `seed:dev ok — ${total.n} usuários e ${t.n} procedimentos no banco de desenvolvimento`,
+  );
   sqlite.close();
 }
