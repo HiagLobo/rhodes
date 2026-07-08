@@ -155,6 +155,49 @@ export const scoreConfig = sqliteTable('score_config', {
 });
 
 /**
+ * Operação de navio (Onda 04) — estado MATERIALIZADO para leitura burra; o histórico vive em
+ * ship_events. `task_instances.round_id` referencia esta tabela POR CÓDIGO (sem FK — decisão
+ * da Onda 03).
+ */
+export const shipOperations = sqliteTable('ship_operations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  navio: text('navio').notNull(),
+  produto: text('produto'),
+  tonelagem: real('tonelagem'),
+  etaDate: text('eta_date').notNull(),
+  status: text('status').notNull().default('ANUNCIADO'),
+  criadoPorId: integer('criado_por_id').references(() => users.id),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Eventos da operação — histórico IMUTÁVEL (correção = novo evento). `event_at` é a hora REAL
+ * do fato (informada; única exceção documentada ao "nunca digitável" — validada na API:
+ * ≤ agora e ≥ evento anterior). `registered_at` é sempre do servidor (ALCOA).
+ */
+export const shipEvents = sqliteTable(
+  'ship_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    operationId: integer('operation_id')
+      .notNull()
+      .references(() => shipOperations.id),
+    transicao: text('transicao').notNull(),
+    eventAt: integer('event_at', { mode: 'timestamp' }).notNull(),
+    registeredAt: integer('registered_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    registradoPorId: integer('registrado_por_id')
+      .notNull()
+      .references(() => users.id),
+    confirmadoPorId: integer('confirmado_por_id').references(() => users.id),
+  },
+  (t) => [index('ship_events_operation_idx').on(t.operationId)],
+);
+
+/**
  * Trilha de auditoria (Onda 01/S2) — APPEND-ONLY, imposto por triggers na migração 0002
  * (UPDATE/DELETE → RAISE(ABORT)). Toda ação significativa entra aqui via o helper audit().
  * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").

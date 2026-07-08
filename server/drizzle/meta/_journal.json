@@ -43,6 +43,13 @@
       "when": 1783507564610,
       "tag": "0005_instancias",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783516921843,
+      "tag": "0006_navios",
+      "breakpoints": true
     }
   ]
 }
