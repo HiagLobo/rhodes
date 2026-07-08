@@ -104,8 +104,10 @@ export function onComplete(
 
     let proxima: InstanciaRow | null = null;
     if (template.ativo && (template.triggerType === 'CALENDAR' || template.triggerType === 'HYBRID')) {
+      // RESET TOTAL (§4.3 + revisão da Onda 03/S2): conclusão de instância de NAVIO reinicia
+      // o relógio a partir de hoje, sempre — a âncora FIXED não deriva de data de navio.
       const due =
-        template.scheduleMode === 'FLOATING'
+        template.scheduleMode === 'FLOATING' || inst.origin === 'SHIP'
           ? somarDias(hoje, template.intervalDays)
           : proximaAncoraFixed(template, inst.dueDate, hoje);
       proxima = criarInstancia(t, template, { due });
