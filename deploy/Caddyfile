@@ -1,0 +1,18 @@
+# Entrada HTTPS da rede local — única porta exposta do sistema (443).
+# O app Fastify escuta só em 127.0.0.1:3000; o Caddy é quem fala com a rede.
+# CA interna (local_certs): o certificado raiz precisa ser instalado nos aparelhos
+# da empresa — procedimento no README-DEPLOY.md.
+
+{
+	local_certs
+}
+
+rhodes.local {
+	reverse_proxy 127.0.0.1:3000
+
+	log {
+		output file C:/rhodes-data/logs/caddy/access.log {
+			roll_keep 14
+		}
+	}
+}

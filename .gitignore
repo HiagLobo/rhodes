@@ -14,3 +14,7 @@ logs/
 # segredos e ambiente
 .env
 .env.*
+
+# binários de deploy (vivem em C:\rhodes\, nunca no repo)
+deploy/*.exe
+

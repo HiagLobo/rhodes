@@ -1,0 +1,22 @@
+<service>
+  <id>rhodes-caddy</id>
+  <name>Rhodes - Caddy (HTTPS da rede local)</name>
+  <description>Entrada HTTPS (porta 443) do sistema Rhodes - proxy para o app em 127.0.0.1:3000</description>
+
+  <executable>C:\rhodes\caddy\caddy.exe</executable>
+  <arguments>run --config C:\rhodes\caddy\Caddyfile</arguments>
+  <workingdirectory>C:\rhodes\caddy</workingdirectory>
+
+  <!-- Deixa a CA interna num caminho previsivel:
+       C:\rhodes\caddy\data\caddy\pki\authorities\local\root.crt -->
+  <env name="XDG_DATA_HOME" value="C:\rhodes\caddy\data" />
+  <env name="XDG_CONFIG_HOME" value="C:\rhodes\caddy\config" />
+
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+
+  <onfailure action="restart" delay="5 sec" />
+  <onfailure action="restart" delay="20 sec" />
+</service>

@@ -1,0 +1,22 @@
+<service>
+  <id>rhodes-app</id>
+  <name>Rhodes - Sistema de Gestao de Limpeza (app)</name>
+  <description>Backend Fastify + SPA do plano mestre de limpeza da Rhodes S.A (Porto do Recife)</description>
+
+  <!-- Se o node nao estiver no PATH do sistema, troque por C:\Program Files\nodejs\node.exe -->
+  <executable>node</executable>
+  <arguments>dist\index.js</arguments>
+  <workingdirectory>C:\rhodes\app\server</workingdirectory>
+
+  <env name="NODE_ENV" value="production" />
+  <env name="RHODES_DATA_DIR" value="C:\rhodes-data" />
+  <env name="PORT" value="3000" />
+
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+
+  <onfailure action="restart" delay="5 sec" />
+  <onfailure action="restart" delay="20 sec" />
+</service>

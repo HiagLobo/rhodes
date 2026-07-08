@@ -50,4 +50,6 @@ O boot é fail-fast: env inválido derruba o processo com mensagem explicativa. 
 
 ## Deploy
 
-Runbook completo em `deploy/README-DEPLOY.md` (chega na S4).
+Runbook completo em [deploy/README-DEPLOY.md](deploy/README-DEPLOY.md) — subida do zero numa
+máquina Windows: `deploy.ps1` (build + publicação em `C:\rhodes\app`), serviços `rhodes-app` e
+`rhodes-caddy` via WinSW, HTTPS interno do Caddy e instalação da CA nos aparelhos.
