@@ -11,7 +11,7 @@ describe('GET /api/health', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhodes-health-'));
   const { db, sqlite } = createDb(dir);
   runMigrations(db);
-  const app = buildApp({ sqlite });
+  const app = buildApp({ db, sqlite });
 
   afterAll(async () => {
     await app.close();
@@ -37,7 +37,7 @@ describe('GET /api/health', () => {
   it('responde 503 quando o banco está indisponível', async () => {
     const broken = createDb(fs.mkdtempSync(path.join(os.tmpdir(), 'rhodes-health2-')));
     broken.sqlite.close(); // simula banco fora do ar
-    const appBroken = buildApp({ sqlite: broken.sqlite });
+    const appBroken = buildApp({ db: broken.db, sqlite: broken.sqlite });
     const res = await appBroken.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(503);
     const body = res.json() as { status: string; db: string };

@@ -4,7 +4,10 @@
     "noEmit": false,
     "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true
+    "sourceMap": true,
+    // No EMIT o shared é externo: tipos vêm de shared/dist via exports do pacote
+    // (por isso o shared builda primeiro — ordem dos workspaces na raiz).
+    "paths": {}
   },
   "include": ["src"]
 }

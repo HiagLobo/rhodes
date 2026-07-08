@@ -50,7 +50,9 @@ Write-Host "-- publicando em $Destino --"
 New-Item -ItemType Directory -Force "$Destino\server", "$Destino\web", "$Destino\shared" | Out-Null
 Invoke-Robocopy "$repo\server\dist"    "$Destino\server\dist"
 Invoke-Robocopy "$repo\server\drizzle" "$Destino\server\drizzle"
+Invoke-Robocopy "$repo\server\assets"  "$Destino\server\assets"
 Invoke-Robocopy "$repo\web\dist"       "$Destino\web\dist"
+Invoke-Robocopy "$repo\shared\dist"    "$Destino\shared\dist"
 Copy-Item "$repo\package.json", "$repo\package-lock.json" $Destino -Force
 Copy-Item "$repo\server\package.json" "$Destino\server\" -Force
 Copy-Item "$repo\web\package.json" "$Destino\web\" -Force

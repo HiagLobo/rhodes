@@ -1,16 +1,20 @@
 import { fileURLToPath } from 'node:url';
 
+import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { Logger } from 'pino';
 import type DatabaseType from 'better-sqlite3';
 
+import type { Db } from './db/index.js';
+import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 
 // web/dist fica a 2 níveis deste arquivo tanto em src/ quanto em dist/ (build da S4).
 export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
 export type BuildAppOptions = {
+  db: Db;
   sqlite: DatabaseType.Database;
   logger?: Logger;
   /**
@@ -27,7 +31,9 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
     opts.logger ? { loggerInstance: opts.logger as unknown as FastifyBaseLogger } : { logger: false },
   );
 
+  app.register(fastifyCookie);
   app.register(healthRoutes, { sqlite: opts.sqlite });
+  app.register(authRoutes, { db: opts.db });
 
   const staticRoot =
     opts.staticRoot !== undefined

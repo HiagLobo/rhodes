@@ -18,3 +18,11 @@ export type Usuario = {
   role: Role;
   ativo: boolean;
 };
+
+/** Payload do POST /api/auth/login (limites alinhados à política de senha do server). */
+export const loginPayloadSchema = z.object({
+  login: z.string().trim().min(1).max(100),
+  senha: z.string().min(1).max(64),
+});
+
+export type LoginPayload = z.infer<typeof loginPayloadSchema>;

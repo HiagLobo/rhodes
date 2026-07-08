@@ -14,7 +14,7 @@ try {
   const { db, sqlite } = createDb(env.RHODES_DATA_DIR);
   runMigrations(db);
 
-  const app = buildApp({ sqlite, logger });
+  const app = buildApp({ db, sqlite, logger });
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'encerrando o servidor');

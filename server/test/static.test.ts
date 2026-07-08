@@ -14,7 +14,7 @@ describe('serving estático de produção (fallback SPA)', () => {
 
   const { db, sqlite } = createDb(dataDir);
   runMigrations(db);
-  const app = buildApp({ sqlite, staticRoot: webRoot });
+  const app = buildApp({ db, sqlite, staticRoot: webRoot });
 
   afterAll(async () => {
     await app.close();
@@ -49,7 +49,7 @@ describe('serving estático de produção (fallback SPA)', () => {
     const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'rhodes-static2-'));
     const db2 = createDb(dir2);
     runMigrations(db2.db);
-    const appDev = buildApp({ sqlite: db2.sqlite });
+    const appDev = buildApp({ db: db2.db, sqlite: db2.sqlite });
     const res = await appDev.inject({ method: 'GET', url: '/' });
     expect(res.statusCode).toBe(404);
     await appDev.close();

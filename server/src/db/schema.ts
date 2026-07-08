@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Tabela técnica chave/valor — prova o pipeline de migração na S2 da Onda 00.
@@ -33,6 +33,27 @@ export const users = sqliteTable('users', {
  * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").
  * id autoincrement = ordem monotônica dos eventos.
  */
+/**
+ * Sessões (Onda 01/S3). `id` é o SHA-256 do token — o token em claro só existe no cookie
+ * do cliente (vazamento do banco não vira sessão válida). Expiração deslizante de ~1 turno:
+ * `expira_em` é renovado a cada request autenticado (validarSessao).
+ */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    criadoEm: integer('criado_em', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    expiraEm: integer('expira_em', { mode: 'timestamp' }).notNull(),
+    ip: text('ip'),
+  },
+  (t) => [index('sessions_user_id_idx').on(t.userId)],
+);
+
 export const auditLog = sqliteTable('audit_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   atorId: integer('ator_id').references(() => users.id),

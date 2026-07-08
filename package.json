@@ -8,9 +8,9 @@
     "node": ">=24 <25"
   },
   "workspaces": [
+    "shared",
     "server",
-    "web",
-    "shared"
+    "web"
   ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @rhodes/server\" \"npm run dev -w @rhodes/web\"",
