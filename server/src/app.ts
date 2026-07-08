@@ -18,6 +18,7 @@ import { healthRoutes } from './routes/health.js';
 import { instanciasRoutes } from './routes/instancias.js';
 import { naviosRoutes } from './routes/navios.js';
 import { usuariosRoutes } from './routes/usuarios.js';
+import { vistoriaRoutes } from './routes/vistoria.js';
 
 // web/dist fica a 2 níveis deste arquivo tanto em src/ quanto em dist/ (build da S4).
 export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -54,6 +55,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(catalogoRoutes, { db: opts.db });
   app.register(instanciasRoutes, { db: opts.db });
   app.register(naviosRoutes, { db: opts.db });
+  app.register(vistoriaRoutes, { db: opts.db });
   app.register(fotosRoutes, {
     db: opts.db,
     dataDir: opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev'),

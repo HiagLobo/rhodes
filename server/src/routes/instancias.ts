@@ -18,6 +18,7 @@ import type { Db } from '../db/index.js';
 import {
   areas,
   execucaoPartes,
+  inspections,
   justificativas,
   metodoVersoes,
   photos,
@@ -32,6 +33,7 @@ import {
   onComplete,
   onJustify,
 } from '../services/scheduler/on-complete.js';
+import { paraInspecaoResumo } from './vistoria.js';
 import {
   EvidenciaInvalidaError,
   parteCorrente,
@@ -252,6 +254,16 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
       parteCorrente: parteCorrente(db, row.inst.id),
       tempoExecucaoSeg: tempoPorPartes(fotos.map(paraEvidencia)),
       justificativa,
+      inspecao: (() => {
+        const r = db
+          .select({ insp: inspections, vistoriador: users.login, retrabalhoDue: taskInstances.dueDate })
+          .from(inspections)
+          .innerJoin(users, eq(inspections.vistoriadorId, users.id))
+          .leftJoin(taskInstances, eq(inspections.retrabalhoInstanceId, taskInstances.id))
+          .where(eq(inspections.instanceId, row.inst.id))
+          .get();
+        return r ? paraInspecaoResumo(r.insp, r.vistoriador, r.retrabalhoDue) : null;
+      })(),
     };
     return reply.send(detalhe);
   });
