@@ -198,6 +198,43 @@ export const shipEvents = sqliteTable(
 );
 
 /**
+ * Evidência fotográfica (Onda 05/S1) — o binário vive no filesystem
+ * (`RHODES_DATA_DIR/fotos/AAAA/MM/<sha256>.jpg`, NUNCA BLOB); aqui ficam os metadados.
+ * `sha256` UNIQUE é a trava anti-reuso (foto bit-idêntica em outra tarefa = rejeitada).
+ * `captured_at`/`skew_ms` vêm do dispositivo; `received_at` é a âncora temporal do SERVIDOR.
+ * `parte` é o ordinal de execução multi-dia (sem FK — `execucao_partes` chega na S2, mesmo
+ * padrão do `round_id`). Foto nunca se apaga.
+ */
+export const photos = sqliteTable(
+  'photos',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    instanceId: integer('instance_id')
+      .notNull()
+      .references(() => taskInstances.id),
+    tipo: text('tipo').notNull(),
+    parte: integer('parte').notNull().default(1),
+    sha256: text('sha256').notNull(),
+    path: text('path').notNull(),
+    tamanhoBytes: integer('tamanho_bytes').notNull(),
+    capturedAt: integer('captured_at', { mode: 'timestamp' }).notNull(),
+    receivedAt: integer('received_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    skewMs: integer('skew_ms').notNull(),
+    exifDatetime: text('exif_datetime'),
+    exifModel: text('exif_model'),
+    enviadoPorId: integer('enviado_por_id')
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => [
+    uniqueIndex('photos_sha256_uq').on(t.sha256),
+    index('photos_instance_idx').on(t.instanceId),
+  ],
+);
+
+/**
  * Trilha de auditoria (Onda 01/S2) — APPEND-ONLY, imposto por triggers na migração 0002
  * (UPDATE/DELETE → RAISE(ABORT)). Toda ação significativa entra aqui via o helper audit().
  * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").

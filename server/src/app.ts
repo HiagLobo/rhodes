@@ -1,14 +1,19 @@
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import { FOTO_MAX_BYTES } from '@rhodes/shared';
 import type { Logger } from 'pino';
 import type DatabaseType from 'better-sqlite3';
 
 import type { Db } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
 import { catalogoRoutes } from './routes/catalogo.js';
+import { fotosRoutes } from './routes/fotos.js';
 import { healthRoutes } from './routes/health.js';
 import { instanciasRoutes } from './routes/instancias.js';
 import { naviosRoutes } from './routes/navios.js';
@@ -26,6 +31,11 @@ export type BuildAppOptions = {
    * e não serve nada em dev/teste (o Vite cuida do front em dev).
    */
   staticRoot?: string | null;
+  /**
+   * Onde as fotos vivem (RHODES_DATA_DIR) — o index.ts SEMPRE passa; o default em tmp
+   * existe só para os testes antigos que não tocam em foto.
+   */
+  dataDir?: string;
 };
 
 /** Fábrica do app — recebe dependências prontas para ser testável com banco temporário. */
@@ -36,12 +46,18 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   );
 
   app.register(fastifyCookie);
+  // Limite ANTES de bufferizar: o multipart corta o stream no fileSize (não lê 1 GB para negar).
+  app.register(fastifyMultipart, { limits: { fileSize: FOTO_MAX_BYTES, files: 1 } });
   app.register(healthRoutes, { sqlite: opts.sqlite });
   app.register(authRoutes, { db: opts.db });
   app.register(usuariosRoutes, { db: opts.db });
   app.register(catalogoRoutes, { db: opts.db });
   app.register(instanciasRoutes, { db: opts.db });
   app.register(naviosRoutes, { db: opts.db });
+  app.register(fotosRoutes, {
+    db: opts.db,
+    dataDir: opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev'),
+  });
 
   const staticRoot =
     opts.staticRoot !== undefined

@@ -17,7 +17,7 @@ try {
   const { db, sqlite } = createDb(env.RHODES_DATA_DIR);
   runMigrations(db);
 
-  const app = buildApp({ db, sqlite, logger });
+  const app = buildApp({ db, sqlite, logger, dataDir: env.RHODES_DATA_DIR });
 
   // Motor: uma execução no boot (servidor religado não espera até amanhã; é idempotente)
   // + cron às 00:05 no fuso do porto (arquitetura §4.4).
