@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth.js';
 import { catalogoRoutes } from './routes/catalogo.js';
 import { healthRoutes } from './routes/health.js';
 import { instanciasRoutes } from './routes/instancias.js';
+import { naviosRoutes } from './routes/navios.js';
 import { usuariosRoutes } from './routes/usuarios.js';
 
 // web/dist fica a 2 níveis deste arquivo tanto em src/ quanto em dist/ (build da S4).
@@ -40,6 +41,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(usuariosRoutes, { db: opts.db });
   app.register(catalogoRoutes, { db: opts.db });
   app.register(instanciasRoutes, { db: opts.db });
+  app.register(naviosRoutes, { db: opts.db });
 
   const staticRoot =
     opts.staticRoot !== undefined
