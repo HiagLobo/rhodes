@@ -9,7 +9,7 @@ export class ApiError extends Error {
 }
 
 type ApiOptions = {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PATCH';
   body?: unknown;
   /**
    * Sessão morta no meio do uso → volta para /login. Desligue em chamadas de auth

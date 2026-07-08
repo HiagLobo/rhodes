@@ -16,6 +16,8 @@ import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useNavigate } fro
 import { api } from './lib/api';
 import { Inicio } from './pages/Inicio';
 import { Login } from './pages/Login';
+import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
+import { Procedimentos } from './pages/gestor/Procedimentos';
 import { Usuarios } from './pages/gestor/Usuarios';
 import { cssVariablesResolver, theme } from './theme';
 
@@ -72,9 +74,19 @@ function Shell({ usuario }: { usuario: Usuario }) {
               Rhodes · Limpeza
             </Text>
             {usuario.role === 'GESTOR' && (
-              <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
-                Usuários
-              </Button>
+              <>
+                <Button
+                  component={Link}
+                  to="/gestor/procedimentos"
+                  variant="subtle"
+                  size="compact-md"
+                >
+                  Plano Mestre
+                </Button>
+                <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
+                  Usuários
+                </Button>
+              </>
             )}
           </Group>
           <Group gap="sm" wrap="nowrap">
@@ -103,6 +115,8 @@ export function AppRoutes() {
       <Route element={<AreaLogada />}>
         <Route index element={<Inicio />} />
         <Route path="/gestor/usuarios" element={<Usuarios />} />
+        <Route path="/gestor/procedimentos" element={<Procedimentos />} />
+        <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
