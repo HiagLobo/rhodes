@@ -13,6 +13,7 @@ import {
   requireRole,
 } from '../lib/auth.js';
 import { verificarSenha } from '../lib/passwords.js';
+import { ehAmostral, lerPctAmostral } from '../services/scheduler/amostragem.js';
 import {
   InspecaoInvalidaError,
   onInspect,
@@ -120,28 +121,35 @@ export const vistoriaRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
       ? db.select().from(photos).where(inArray(photos.instanceId, ids)).all()
       : [];
 
-    return reply.send(
-      rows.map((r) => ({
-        id: r.inst.id,
-        templateId: r.inst.templateId,
-        areaId: r.areaId,
-        areaNome: r.areaNome,
-        atividade: r.atividade,
-        executanteLogin: r.executanteLogin,
-        status: r.inst.status,
-        dueDate: r.inst.dueDate,
-        finishedAt: r.inst.finishedAt?.toISOString() ?? null,
-        roundId: r.inst.roundId,
-        origin: r.inst.origin,
-        reworkOfInstanceId: r.inst.reworkOfInstanceId,
-        tempoExecucaoSeg: tempoPorPartes(
-          fotosTodas
-            .filter((f) => f.instanceId === r.inst.id)
-            .map((f) => ({ tipo: f.tipo, parte: f.parte, receivedAt: f.receivedAt })),
-        ),
-        amostral: false, // S3 pluga o sorteio determinístico aqui
-      })),
-    );
+    const pct = lerPctAmostral(db);
+    const itens = rows.map((r) => ({
+      id: r.inst.id,
+      templateId: r.inst.templateId,
+      areaId: r.areaId,
+      areaNome: r.areaNome,
+      atividade: r.atividade,
+      executanteLogin: r.executanteLogin,
+      status: r.inst.status,
+      dueDate: r.inst.dueDate,
+      finishedAt: r.inst.finishedAt?.toISOString() ?? null,
+      roundId: r.inst.roundId,
+      origin: r.inst.origin,
+      reworkOfInstanceId: r.inst.reworkOfInstanceId,
+      tempoExecucaoSeg: tempoPorPartes(
+        fotosTodas
+          .filter((f) => f.instanceId === r.inst.id)
+          .map((f) => ({ tipo: f.tipo, parte: f.parte, receivedAt: f.receivedAt })),
+      ),
+      amostral: ehAmostral(r.inst.id, pct),
+    }));
+    // antiguidade manda; entre iguais, os sorteados da amostra vêm primeiro
+    itens.sort((a, b) => {
+      const fa = a.finishedAt ?? '';
+      const fb = b.finishedAt ?? '';
+      if (fa !== fb) return fa < fb ? -1 : 1;
+      return Number(b.amostral) - Number(a.amostral);
+    });
+    return reply.send(itens);
   });
 
   app.post('/api/instancias/:id/aprovar', { preHandler: vistoria }, async (req, reply) => {
@@ -156,7 +164,7 @@ export const vistoriaRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
       const r = onInspect(
         db,
         params.data.id,
-        { resultado: 'APROVADA' },
+        { resultado: 'APROVADA', amostral: ehAmostral(params.data.id, lerPctAmostral(db)) },
         { id: req.user!.id, login: req.user!.login },
         new Date(),
         req.ip,
@@ -197,6 +205,7 @@ export const vistoriaRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
           severidade: body.data.severidade,
           texto: body.data.texto ?? null,
           fotoId: body.data.fotoId ?? null,
+          amostral: ehAmostral(params.data.id, lerPctAmostral(db)),
         },
         { id: req.user!.id, login: req.user!.login },
         new Date(),

@@ -1,4 +1,4 @@
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
   justificarSchema,
@@ -62,8 +62,21 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
   /**
    * Lista AGORA — SELECT puro sobre instâncias materializadas (imutável 4: zero cálculo
    * de recorrência na leitura). Ordenação no SQL: atrasadas primeiro, depois janela.
+   * Dependência física (Onda 06): numa rodada de navio, a tarefa dependente só APARECE
+   * depois que a predecessora do MESMO round foi APROVADA na vistoria (reprovada não
+   * libera) — filtro de visibilidade, não de recorrência.
    */
   app.get('/api/agora', { preHandler: logado }, (): InstanciaResumo[] => {
+    const predecessoraAprovada = sql`(
+      ${taskTemplates.dependsOnTemplateId} IS NULL
+      OR ${taskInstances.roundId} IS NULL
+      OR EXISTS (
+        SELECT 1 FROM task_instances pred
+        JOIN inspections insp ON insp.instance_id = pred.id AND insp.resultado = 'APROVADA'
+        WHERE pred.template_id = ${taskTemplates.dependsOnTemplateId}
+          AND pred.round_id = ${taskInstances.roundId}
+      )
+    )`;
     const rows = db
       .select({
         inst: taskInstances,
@@ -78,7 +91,7 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
       .innerJoin(taskTemplates, eq(taskInstances.templateId, taskTemplates.id))
       .innerJoin(areas, eq(taskTemplates.areaId, areas.id))
       .leftJoin(users, eq(taskInstances.executanteId, users.id))
-      .where(inArray(taskInstances.status, [...STATUS_ABERTOS]))
+      .where(and(inArray(taskInstances.status, [...STATUS_ABERTOS]), predecessoraAprovada))
       .orderBy(
         sql`CASE ${taskInstances.status} WHEN 'OVERDUE' THEN 0 ELSE 1 END`,
         asc(taskInstances.windowEnd),

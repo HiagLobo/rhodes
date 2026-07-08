@@ -223,6 +223,89 @@ describe('reprovação', () => {
     ctx.sqlite.close();
   });
 
+  it('dependência física: dependente invisível na AGORA até APROVAR a predecessora do round', async () => {
+    const ctx = await novoApp();
+    const vist = await loginDe(ctx.app, 'vistoriador.teste');
+    const exec = await loginDe(ctx.app, 'executante.teste');
+    const execId = (
+      ctx.sqlite.prepare("SELECT id FROM users WHERE login = 'executante.teste'").get() as {
+        id: number;
+      }
+    ).id;
+
+    // templates sintéticos A (predecessora) e B (dependente de A), rodada 42
+    const areaId = (ctx.sqlite.prepare('SELECT id FROM areas LIMIT 1').get() as { id: number }).id;
+    const criarTemplate = ctx.sqlite.prepare(
+      `INSERT INTO task_templates (area_id, atividade, frequency, interval_days, schedule_mode,
+         grace_days, trigger_type, depends_on_template_id, ativo)
+       VALUES (?, ?, 'QUINZENAL', 15, 'FLOATING', 1, 'HYBRID', ?, 1)`,
+    );
+    const tA = criarTemplate.run(areaId, 'Sintética A (limpa primeiro)', null)
+      .lastInsertRowid as number;
+    const tB = criarTemplate.run(areaId, 'Sintética B (depende de A)', tA)
+      .lastInsertRowid as number;
+    const hoje = dataRecife(new Date());
+    const criarInst = ctx.sqlite.prepare(
+      `INSERT INTO task_instances (template_id, due_date, window_end, status, origin, round_id, executante_id, finished_at)
+       VALUES (?, ?, ?, ?, 'SHIP', 42, ?, ?)`,
+    );
+    const iA = criarInst.run(tA, hoje, hoje, 'DONE_ON_TIME', execId, Math.floor(Date.now() / 1000))
+      .lastInsertRowid as number;
+    const iB = criarInst.run(tB, hoje, hoje, 'PENDING', null, null).lastInsertRowid as number;
+
+    const antes = (
+      await ctx.app.inject({ method: 'GET', url: '/api/agora', headers: { cookie: exec } })
+    ).json() as InstanciaResumo[];
+    expect(antes.some((i) => i.id === iB)).toBe(false); // gate fechado
+
+    // REPROVAR a predecessora NÃO libera
+    await ctx.app.inject({
+      method: 'POST',
+      url: `/api/instancias/${iA}/reprovar`,
+      headers: { cookie: vist },
+      payload: { senha: SENHA_DEV, motivo: 'MOFO', severidade: 'MENOR' },
+    });
+    const aposReprovar = (
+      await ctx.app.inject({ method: 'GET', url: '/api/agora', headers: { cookie: exec } })
+    ).json() as InstanciaResumo[];
+    expect(aposReprovar.some((i) => i.id === iB)).toBe(false);
+
+    // nova execução de A no MESMO round, desta vez APROVADA → libera B
+    const iA2 = criarInst.run(
+      tA,
+      hoje,
+      hoje,
+      'DONE_ON_TIME',
+      execId,
+      Math.floor(Date.now() / 1000),
+    ).lastInsertRowid as number;
+    await ctx.app.inject({
+      method: 'POST',
+      url: `/api/instancias/${iA2}/aprovar`,
+      headers: { cookie: vist },
+      payload: { senha: SENHA_DEV },
+    });
+    const depois = (
+      await ctx.app.inject({ method: 'GET', url: '/api/agora', headers: { cookie: exec } })
+    ).json() as InstanciaResumo[];
+    expect(depois.some((i) => i.id === iB)).toBe(true);
+
+    // dependente SEM round (calendário) nunca é segurada
+    ctx.sqlite.prepare('UPDATE task_instances SET status = ? WHERE id = ?').run('MISSED', iB); // libera o índice
+    const iC = ctx.sqlite
+      .prepare(
+        `INSERT INTO task_instances (template_id, due_date, window_end, status, origin)
+         VALUES (?, ?, ?, 'PENDING', 'CALENDAR')`,
+      )
+      .run(tB, hoje, hoje).lastInsertRowid as number;
+    const semRound = (
+      await ctx.app.inject({ method: 'GET', url: '/api/agora', headers: { cookie: exec } })
+    ).json() as InstanciaResumo[];
+    expect(semRound.some((i) => i.id === iC)).toBe(true);
+    await ctx.app.close();
+    ctx.sqlite.close();
+  });
+
   it('OUTRO sem texto → 400; foto de outra instância → 400', async () => {
     const ctx = await novoApp();
     const vist = await loginDe(ctx.app, 'vistoriador.teste');
