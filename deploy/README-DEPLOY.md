@@ -33,6 +33,9 @@ celulares/desktops da LAN ──HTTPS──▶ Caddy (serviço rhodes-caddy, por
 
 ## 2. Publicar (a cada versão)
 
+> Com os serviços já instalados, rode em PowerShell **como administrador** (parar/religar
+> serviço exige elevação — o script confere isso antes do build e avisa).
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
 ```

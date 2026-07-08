@@ -29,6 +29,14 @@ if (-not $nodeVersion -or -not $nodeVersion.StartsWith('v24')) {
 }
 if ($Destino -match 'OneDrive') { throw 'Destino de producao nao pode ficar em pasta OneDrive.' }
 
+# Com servicos instalados, parar/religar exige elevacao — falhar AGORA, antes do build.
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$instalados = @($servicos | Where-Object { Get-Service $_ -ErrorAction SilentlyContinue })
+if ($instalados.Count -gt 0 -and -not $isAdmin) {
+  throw ("Os servicos ja estao instalados ($($instalados -join ', ')) e este PowerShell NAO esta " +
+    'elevado. Abra o PowerShell com "Executar como administrador" e rode o deploy de novo.')
+}
+
 # 2. Build (web/dist + server/dist)
 if (-not $PularBuild) {
   Write-Host '-- build --'
