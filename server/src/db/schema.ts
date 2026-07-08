@@ -26,3 +26,24 @@ export const users = sqliteTable('users', {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+/**
+ * Trilha de auditoria (Onda 01/S2) — APPEND-ONLY, imposto por triggers na migração 0002
+ * (UPDATE/DELETE → RAISE(ABORT)). Toda ação significativa entra aqui via o helper audit().
+ * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").
+ * id autoincrement = ordem monotônica dos eventos.
+ */
+export const auditLog = sqliteTable('audit_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  atorId: integer('ator_id').references(() => users.id),
+  atorLogin: text('ator_login'),
+  acao: text('acao').notNull(),
+  entidade: text('entidade'),
+  entidadeId: text('entidade_id'),
+  antes: text('antes'),
+  depois: text('depois'),
+  ip: text('ip'),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
