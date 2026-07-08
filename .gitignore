@@ -4,6 +4,10 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# guarda: JS emitido por engano dentro de pasta fonte nunca entra no git
+shared/src/*.js
+shared/src/*.js.map
+
 # dados — NUNCA no git (e nunca em pasta OneDrive; ver RHODES_DATA_DIR)
 *.db
 *.db-wal
