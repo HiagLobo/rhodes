@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  unique,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Tabela técnica chave/valor — prova o pipeline de migração na S2 da Onda 00.
@@ -25,6 +33,87 @@ export const users = sqliteTable('users', {
   criadoEm: integer('criado_em', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
+});
+
+/**
+ * Áreas físicas do terminal (Onda 02) — 1 linha por string distinta da coluna "Área" do
+ * checklist validado. `peso_criticidade` entra no score (mudança é auditada pela API).
+ */
+export const areas = sqliteTable('areas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nome: text('nome').notNull().unique(),
+  pesoCriticidade: real('peso_criticidade').notNull().default(1),
+  ativo: integer('ativo', { mode: 'boolean' }).notNull().default(true),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Procedimentos do Plano Mestre (Onda 02) — os 39 do checklist + os que o gestor criar.
+ * `interval_days`/`grace_days` são sempre derivados da frequência NO SERVIDOR.
+ * O método ("como será feito") vive em `metodo_versoes` — este registro só aponta a versão
+ * atual (FK circular nullable: template → versão → template).
+ */
+export const taskTemplates = sqliteTable('task_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  areaId: integer('area_id')
+    .notNull()
+    .references(() => areas.id),
+  atividade: text('atividade').notNull(),
+  frequency: text('frequency').notNull(),
+  intervalDays: integer('interval_days').notNull(),
+  scheduleMode: text('schedule_mode').notNull(),
+  graceDays: integer('grace_days').notNull(),
+  triggerType: text('trigger_type').notNull().default('CALENDAR'),
+  shipPhase: text('ship_phase'),
+  leadDays: integer('lead_days'),
+  limitacoes: text('limitacoes'),
+  dependsOnTemplateId: integer('depends_on_template_id').references(
+    (): AnySQLiteColumn => taskTemplates.id,
+  ),
+  metodoVersaoAtualId: integer('metodo_versao_atual_id').references(
+    (): AnySQLiteColumn => metodoVersoes.id,
+  ),
+  ativo: integer('ativo', { mode: 'boolean' }).notNull().default(true),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Versões do método (POP) — linhas IMUTÁVEIS: editar método = inserir versão nova (ALCOA+).
+ * O registro de conclusão das ondas futuras aponta para a versão vigente na data.
+ */
+export const metodoVersoes = sqliteTable(
+  'metodo_versoes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => taskTemplates.id),
+    versao: integer('versao').notNull(),
+    texto: text('texto').notNull(),
+    criadoEm: integer('criado_em', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    criadoPorId: integer('criado_por_id').references(() => users.id),
+  },
+  (t) => [unique('metodo_versoes_template_versao_uq').on(t.templateId, t.versao)],
+);
+
+/**
+ * Parâmetros do score (Onda 02) — VERSIONADA e append-only (triggers na migração 0004):
+ * mudar peso = nova linha; a vigente é a de maior id (imutável 7). Engine chega na Onda 08.
+ */
+export const scoreConfig = sqliteTable('score_config', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  valores: text('valores').notNull(),
+  motivo: text('motivo'),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  criadoPorId: integer('criado_por_id').references(() => users.id),
 });
 
 /**
