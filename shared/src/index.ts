@@ -4,3 +4,4 @@ export const TIMEZONE = 'America/Recife';
 
 export * from './usuarios.js';
 export * from './catalogo.js';
+export * from './agendamento.js';

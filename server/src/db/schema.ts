@@ -6,6 +6,7 @@ import {
   sqliteTable,
   text,
   unique,
+  uniqueIndex,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 
@@ -75,11 +76,48 @@ export const taskTemplates = sqliteTable('task_templates', {
   metodoVersaoAtualId: integer('metodo_versao_atual_id').references(
     (): AnySQLiteColumn => metodoVersoes.id,
   ),
+  // Âncora semanal do modo FIXED (0=domingo…6=sábado); NULL = segunda para SEMANAL (Onda 03).
+  fixedDow: integer('fixed_dow'),
   ativo: integer('ativo', { mode: 'boolean' }).notNull().default(true),
   criadoEm: integer('criado_em', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+/**
+ * Ocorrências de tarefa (Onda 03) — materializadas pelos 3 pontos do motor; a leitura é
+ * SELECT puro. Datas de agendamento como 'YYYY-MM-DD' (dia operacional America/Recife);
+ * started/finished são timestamps do SERVIDOR. `round_id` ainda SEM FK — ship_operations
+ * nasce na Onda 04 (SQLite não adiciona FK depois; integridade via código na 04).
+ * TRAVA física: no máximo 1 instância ABERTA por template (índice único parcial).
+ */
+export const taskInstances = sqliteTable(
+  'task_instances',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => taskTemplates.id),
+    dueDate: text('due_date').notNull(),
+    windowEnd: text('window_end').notNull(),
+    status: text('status').notNull().default('PENDING'),
+    origin: text('origin').notNull().default('CALENDAR'),
+    roundId: integer('round_id'),
+    executanteId: integer('executante_id').references(() => users.id),
+    startedAt: integer('started_at', { mode: 'timestamp' }),
+    finishedAt: integer('finished_at', { mode: 'timestamp' }),
+    criadoEm: integer('criado_em', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    uniqueIndex('task_instances_aberta_por_template_uq')
+      .on(t.templateId)
+      .where(sql`status IN ('PENDING','IN_PROGRESS','OVERDUE')`),
+    index('task_instances_status_idx').on(t.status),
+    index('task_instances_due_idx').on(t.dueDate),
+  ],
+);
 
 /**
  * Versões do método (POP) — linhas IMUTÁVEIS: editar método = inserir versão nova (ALCOA+).
