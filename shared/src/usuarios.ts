@@ -26,3 +26,26 @@ export const loginPayloadSchema = z.object({
 });
 
 export type LoginPayload = z.infer<typeof loginPayloadSchema>;
+
+/** Payload do POST /api/usuarios (gestor cria usuário). */
+export const criarUsuarioSchema = z.object({
+  nome: z.string().trim().min(1).max(120),
+  login: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3)
+    .max(100)
+    .regex(/^[a-z0-9._-]+$/, 'Login pode ter só letras minúsculas, números, ponto, hífen e _'),
+  senha: z.string().min(1).max(64),
+  role: roleSchema,
+});
+
+export type CriarUsuarioPayload = z.infer<typeof criarUsuarioSchema>;
+
+/** Payload do POST /api/usuarios/:id/reset-senha. */
+export const resetSenhaSchema = z.object({
+  senha: z.string().min(1).max(64),
+});
+
+export type ResetSenhaPayload = z.infer<typeof resetSenhaSchema>;

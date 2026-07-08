@@ -9,6 +9,7 @@ import type DatabaseType from 'better-sqlite3';
 import type { Db } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
+import { usuariosRoutes } from './routes/usuarios.js';
 
 // web/dist fica a 2 níveis deste arquivo tanto em src/ quanto em dist/ (build da S4).
 export const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -34,6 +35,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(fastifyCookie);
   app.register(healthRoutes, { sqlite: opts.sqlite });
   app.register(authRoutes, { db: opts.db });
+  app.register(usuariosRoutes, { db: opts.db });
 
   const staticRoot =
     opts.staticRoot !== undefined

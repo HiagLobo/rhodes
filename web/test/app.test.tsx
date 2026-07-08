@@ -1,9 +1,20 @@
 // @vitest-environment jsdom
+import { MantineProvider } from '@mantine/core';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { App } from '../src/App';
+import { Inicio } from '../src/pages/Inicio';
 import { ALTURA_MINIMA_BOTAO, BANDAS, theme } from '../src/theme';
+
+// A página Inicio é testada direto (desde a S4 o <App/> tem router + guarda de sessão;
+// o fluxo com guarda é coberto por login.test.tsx).
+function renderInicio() {
+  return render(
+    <MantineProvider theme={theme}>
+      <Inicio />
+    </MantineProvider>,
+  );
+}
 
 beforeAll(() => {
   // Mantine usa matchMedia/ResizeObserver, que não existem no jsdom
@@ -57,13 +68,13 @@ describe('tema industrial', () => {
 describe('página Início — 3 estados', () => {
   it('mostra "conectando" enquanto o health não responde', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
-    render(<App />);
+    renderInicio();
     expect(screen.getByText(/Conectando ao servidor/i)).toBeDefined();
   });
 
   it('mostra "servidor no ar" com a versão quando o health responde', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(healthOk('9.9.9'))));
-    render(<App />);
+    renderInicio();
     expect(await screen.findByText(/Servidor no ar/i)).toBeDefined();
     expect(screen.getByText(/9\.9\.9/)).toBeDefined();
   });
@@ -73,7 +84,7 @@ describe('página Início — 3 estados', () => {
       'fetch',
       vi.fn(() => Promise.reject(new Error('rede fora'))),
     );
-    render(<App />);
+    renderInicio();
     expect(await screen.findByText(/Servidor fora do ar/i)).toBeDefined();
     expect(screen.getByRole('button', { name: /Tentar novamente/i })).toBeDefined();
   });
