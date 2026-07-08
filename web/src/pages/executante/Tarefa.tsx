@@ -9,12 +9,22 @@ import {
   Group,
   Image,
   Loader,
+  Modal,
   Paper,
   Stack,
   Text,
+  Textarea,
   Title,
 } from '@mantine/core';
-import { STATUS_ABERTOS, type InstanciaDetalhe, type TipoFoto } from '@rhodes/shared';
+import {
+  justificarSchema,
+  MOTIVOS_JUSTIFICATIVA,
+  STATUS_ABERTOS,
+  type FotoResumo,
+  type InstanciaDetalhe,
+  type MotivoJustificativa,
+  type TipoFoto,
+} from '@rhodes/shared';
 import { useNavigate, useParams } from 'react-router';
 
 import { useUsuario } from '../../App';
@@ -26,6 +36,17 @@ function mensagemDe(err: unknown): string {
   if (err instanceof ApiError && err.corpo?.erro) return err.corpo.erro;
   return 'Falha ao falar com o servidor.';
 }
+
+/** Rótulos no vocabulário do pátio (o código é o contrato; o rótulo é conversa). */
+const MOTIVO_LABEL: Record<MotivoJustificativa, string> = {
+  NAVIO_OPERANDO: 'Navio operando na área',
+  CHUVA: 'Chuva',
+  AREA_INTERDITADA: 'Área interditada',
+  EQUIP_TERCEIRO: 'Equipamento de terceiro no local',
+  FALTA_PESSOAL: 'Falta de pessoal',
+  FALTA_MATERIAL: 'Falta de material',
+  OUTRO: 'Outro motivo',
+};
 
 export function formatarTempo(seg: number): string {
   const h = Math.floor(seg / 3600);
@@ -54,6 +75,19 @@ export function Tarefa() {
   const [erroAcao, setErroAcao] = useState('');
   const [sucesso, setSucesso] = useState<Sucesso | null>(null);
   const [, setTick] = useState(0);
+
+  // justificativa ("não foi possível realizar")
+  const [justificando, setJustificando] = useState(false);
+  const [motivoSel, setMotivoSel] = useState<MotivoJustificativa | null>(null);
+  const [textoJust, setTextoJust] = useState('');
+  const [fotoImpedimento, setFotoImpedimento] = useState<FotoResumo | null>(null);
+  const [erroJust, setErroJust] = useState('');
+  const [justificada, setJustificada] = useState<{ proximaDue: string | null } | null>(null);
+
+  // partes ("terminar outro dia")
+  const [registrandoParte, setRegistrandoParte] = useState(false);
+  const [percentual, setPercentual] = useState<number | null>(null);
+  const [obsParte, setObsParte] = useState('');
 
   const carregar = useCallback(() => {
     api<InstanciaDetalhe>(`/api/instancias/${id}`)
@@ -95,14 +129,79 @@ export function Tarefa() {
     setErroAcao('');
     try {
       // 1 toque a menos: fotografar o ANTES já inicia a tarefa
-      if (detalhe && (detalhe.status === 'PENDING' || detalhe.status === 'OVERDUE')) {
+      // (IMPEDIMENTO não inicia nada — justifica-se sem começar)
+      if (
+        tipo !== 'IMPEDIMENTO' &&
+        detalhe &&
+        (detalhe.status === 'PENDING' || detalhe.status === 'OVERDUE')
+      ) {
         await api(`/api/instancias/${id}/iniciar`, { method: 'POST' });
       }
-      await enviarFoto(Number(id), tipo, foto);
-      carregar();
+      const enviada = await enviarFoto(Number(id), tipo, foto);
+      if (tipo === 'IMPEDIMENTO') {
+        setFotoImpedimento(enviada);
+      } else {
+        carregar();
+      }
+    } catch (err) {
+      if (tipo === 'IMPEDIMENTO') {
+        setErroJust(mensagemDe(err));
+      } else {
+        setErroAcao(mensagemDe(err));
+        carregar(); // o iniciar pode ter passado — sincroniza o estado real
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function justificar() {
+    setErroJust('');
+    const payload = {
+      motivo: motivoSel as MotivoJustificativa,
+      texto: textoJust.trim() === '' ? undefined : textoJust.trim(),
+      fotoImpedimentoId: fotoImpedimento?.id,
+    };
+    // mesma validação do backend (contrato em shared) — feedback antes da viagem
+    const valido = justificarSchema.safeParse(payload);
+    if (!valido.success) {
+      setErroJust(valido.error.issues[0]?.message ?? 'Preencha o motivo.');
+      return;
+    }
+    setEnviando(true);
+    try {
+      const r = await api<{ proximaDue: string | null }>(`/api/instancias/${id}/justificar`, {
+        method: 'POST',
+        body: valido.data,
+      });
+      setJustificando(false);
+      setJustificada({ proximaDue: r.proximaDue });
+    } catch (err) {
+      setErroJust(mensagemDe(err));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function registrarParte() {
+    if (percentual === null) return;
+    setEnviando(true);
+    setErroAcao('');
+    try {
+      await api(`/api/instancias/${id}/partes`, {
+        method: 'POST',
+        body: {
+          percentualAcumulado: percentual,
+          observacao: obsParte.trim() === '' ? undefined : obsParte.trim(),
+        },
+      });
+      setRegistrandoParte(false);
+      setPercentual(null);
+      setObsParte('');
+      carregar(); // parte nova: o ciclo de fotos recomeça
     } catch (err) {
       setErroAcao(mensagemDe(err));
-      carregar(); // o iniciar pode ter passado — sincroniza o estado real
+      setRegistrandoParte(false);
     } finally {
       setEnviando(false);
     }
@@ -122,6 +221,29 @@ export function Tarefa() {
     } finally {
       setEnviando(false);
     }
+  }
+
+  if (justificada) {
+    return (
+      <Container size="xs" py="xl">
+        <Paper withBorder p="xl">
+          <Stack align="center" gap="sm">
+            <Title order={2}>Tarefa reagendada</Title>
+            {justificada.proximaDue && (
+              <Text size="xl" fw={800}>
+                Nova data: {justificada.proximaDue}
+              </Text>
+            )}
+            <Badge size="lg" color="yellow">
+              aguardando aprovação do gestor
+            </Badge>
+            <Button size="xl" fullWidth style={{ height: 64 }} onClick={() => navigate('/agora')}>
+              Voltar para as tarefas
+            </Button>
+          </Stack>
+        </Paper>
+      </Container>
+    );
   }
 
   if (sucesso) {
@@ -277,6 +399,17 @@ export function Tarefa() {
                     </Button>
                   )}
                 </Group>
+
+                <Group gap="xs" grow>
+                  {temAntes && temDepois && (
+                    <Button variant="default" onClick={() => setRegistrandoParte(true)}>
+                      Terminar outro dia
+                    </Button>
+                  )}
+                  <Button color="red" variant="light" onClick={() => setJustificando(true)}>
+                    Não foi possível realizar
+                  </Button>
+                </Group>
               </Stack>
             )}
 
@@ -299,9 +432,112 @@ export function Tarefa() {
         )}
       </Stack>
 
+      <Modal
+        opened={justificando}
+        onClose={() => setJustificando(false)}
+        title="Não foi possível realizar"
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Escolha o motivo — a tarefa será reagendada e o gestor avisado.
+          </Text>
+          {MOTIVOS_JUSTIFICATIVA.map((motivo) => (
+            <Button
+              key={motivo}
+              size="lg"
+              fullWidth
+              variant={motivoSel === motivo ? 'filled' : 'default'}
+              onClick={() => setMotivoSel(motivo)}
+            >
+              {MOTIVO_LABEL[motivo]}
+            </Button>
+          ))}
+          <Textarea
+            label="O que aconteceu"
+            description={motivoSel === 'OUTRO' ? 'Obrigatório para "Outro motivo".' : 'Opcional.'}
+            value={textoJust}
+            onChange={(e) => setTextoJust(e.currentTarget.value)}
+            rows={2}
+          />
+          {fotoImpedimento ? (
+            <Group gap="xs">
+              <Image src={`/api/fotos/${fotoImpedimento.id}/thumb`} w={72} h={72} radius="sm" />
+              <Text size="sm">✔ Foto do impedimento anexada</Text>
+            </Group>
+          ) : (
+            <Button variant="default" onClick={() => setCapturando('IMPEDIMENTO')}>
+              📷 Foto do impedimento (opcional)
+            </Button>
+          )}
+          {erroJust && <Alert color="red">{erroJust}</Alert>}
+          <Button
+            size="xl"
+            style={{ height: 64 }}
+            fw={800}
+            color="red"
+            disabled={motivoSel === null}
+            loading={enviando}
+            onClick={() => void justificar()}
+          >
+            Confirmar
+          </Button>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={registrandoParte}
+        onClose={() => setRegistrandoParte(false)}
+        title="Terminar outro dia"
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Quanto da tarefa já está feito? As fotos de hoje ficam guardadas nesta parte; amanhã o
+            ciclo recomeça (novo antes e depois).
+          </Text>
+          <Group grow>
+            {[25, 50, 75].map((pct) => {
+              const ultimo = detalhe?.partes.at(-1)?.percentualAcumulado ?? 0;
+              return (
+                <Button
+                  key={pct}
+                  size="lg"
+                  variant={percentual === pct ? 'filled' : 'default'}
+                  disabled={pct <= ultimo}
+                  onClick={() => setPercentual(pct)}
+                >
+                  {pct}%
+                </Button>
+              );
+            })}
+          </Group>
+          <Textarea
+            label="Observação (opcional)"
+            value={obsParte}
+            onChange={(e) => setObsParte(e.currentTarget.value)}
+            rows={2}
+          />
+          <Button
+            size="xl"
+            style={{ height: 64 }}
+            fw={800}
+            disabled={percentual === null}
+            loading={enviando}
+            onClick={() => void registrarParte()}
+          >
+            Registrar parte
+          </Button>
+        </Stack>
+      </Modal>
+
       {capturando && (
         <CameraCapture
-          titulo={capturando === 'ANTES' ? 'Foto do ANTES' : 'Foto do DEPOIS'}
+          titulo={
+            capturando === 'IMPEDIMENTO'
+              ? 'Foto do impedimento'
+              : capturando === 'ANTES'
+                ? 'Foto do ANTES'
+                : 'Foto do DEPOIS'
+          }
           onFoto={(foto) => void aoCapturar(foto)}
           onCancelar={() => setCapturando(null)}
         />
