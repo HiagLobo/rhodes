@@ -106,17 +106,17 @@ describe('tela AGORA', () => {
     expect(screen.getByText('⚓ NAVIO')).toBeDefined();
   });
 
-  it('EXECUTANTE vê o botão Iniciar; VISTORIADOR não vê ações', async () => {
+  it('EXECUTANTE vê o botão Abrir (ação vive na tela da tarefa); VISTORIADOR não vê ações', async () => {
     mockCom({ role: 'EXECUTANTE' });
     renderAgora();
-    expect((await screen.findAllByRole('button', { name: 'Iniciar' })).length).toBe(2);
+    expect((await screen.findAllByRole('button', { name: 'Abrir' })).length).toBe(2);
     cleanup();
     vi.unstubAllGlobals();
 
     mockCom({ role: 'VISTORIADOR' });
     renderAgora();
     await screen.findByText('Silo 01');
-    expect(screen.queryByRole('button', { name: 'Iniciar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
   });
 
   it('lista vazia mostra "Tudo em dia"', async () => {

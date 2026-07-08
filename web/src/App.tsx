@@ -18,6 +18,7 @@ import { Agora } from './pages/Agora';
 import { Inicio } from './pages/Inicio';
 import { Login } from './pages/Login';
 import { Navios } from './pages/Navios';
+import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Procedimentos } from './pages/gestor/Procedimentos';
 import { Usuarios } from './pages/gestor/Usuarios';
@@ -125,6 +126,7 @@ export function AppRoutes() {
       <Route element={<AreaLogada />}>
         <Route index element={<Inicio />} />
         <Route path="/agora" element={<Agora />} />
+        <Route path="/tarefas/:id" element={<Tarefa />} />
         <Route path="/navios" element={<Navios />} />
         <Route path="/gestor/usuarios" element={<Usuarios />} />
         <Route path="/gestor/procedimentos" element={<Procedimentos />} />

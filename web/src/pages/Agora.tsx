@@ -13,9 +13,10 @@ import {
   Title,
 } from '@mantine/core';
 import type { InstanceStatus, InstanciaResumo } from '@rhodes/shared';
+import { useNavigate } from 'react-router';
 
 import { useUsuario } from '../App';
-import { api, ApiError } from '../lib/api';
+import { api } from '../lib/api';
 import { FREQ_LABEL } from './gestor/Procedimentos';
 
 const STATUS_UI: Record<
@@ -27,11 +28,6 @@ const STATUS_UI: Record<
   PENDING: { rotulo: 'Pendente', cor: 'gray' },
 };
 
-function mensagemDe(err: unknown): string {
-  if (err instanceof ApiError && err.corpo?.erro) return err.corpo.erro;
-  return 'Falha ao falar com o servidor.';
-}
-
 type Estado = { fase: 'carregando' } | { fase: 'erro' } | { fase: 'ok'; itens: InstanciaResumo[] };
 
 /**
@@ -40,9 +36,9 @@ type Estado = { fase: 'carregando' } | { fase: 'erro' } | { fase: 'ok'; itens: I
  */
 export function Agora() {
   const usuario = useUsuario();
+  const navigate = useNavigate();
   const podeExecutar = usuario.role === 'EXECUTANTE' || usuario.role === 'GESTOR';
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' });
-  const [erroAcao, setErroAcao] = useState('');
 
   const carregar = useCallback(() => {
     setEstado({ fase: 'carregando' });
@@ -64,16 +60,6 @@ export function Agora() {
     return [...porArea.entries()];
   }, [estado]);
 
-  async function agir(item: InstanciaResumo, acao: 'iniciar' | 'concluir') {
-    setErroAcao('');
-    try {
-      await api(`/api/instancias/${item.id}/${acao}`, { method: 'POST' });
-      carregar();
-    } catch (err) {
-      setErroAcao(mensagemDe(err));
-    }
-  }
-
   return (
     <Container size="md" py="md">
       <Stack gap="lg">
@@ -83,12 +69,6 @@ export function Agora() {
             Atualizar
           </Button>
         </Group>
-
-        {erroAcao && (
-          <Alert color="red" withCloseButton onClose={() => setErroAcao('')}>
-            {erroAcao}
-          </Alert>
-        )}
 
         {estado.fase === 'carregando' && (
           <Group gap="sm">
@@ -140,16 +120,10 @@ export function Agora() {
                         </Group>
                       </Stack>
                       {podeExecutar && (
-                        <Group gap="xs" wrap="nowrap">
-                          {(item.status === 'PENDING' || item.status === 'OVERDUE') && (
-                            <Button onClick={() => void agir(item, 'iniciar')}>Iniciar</Button>
-                          )}
-                          {item.status === 'IN_PROGRESS' && (
-                            <Button color="green" onClick={() => void agir(item, 'concluir')}>
-                              Concluir
-                            </Button>
-                          )}
-                        </Group>
+                        // iniciar/concluir moram na tela da tarefa (Onda 05: 1 tarefa = 1 tela)
+                        <Button size="lg" onClick={() => navigate(`/tarefas/${item.id}`)}>
+                          Abrir
+                        </Button>
                       )}
                     </Group>
                   </Paper>
