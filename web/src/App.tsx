@@ -17,6 +17,7 @@ import { api } from './lib/api';
 import { Agora } from './pages/Agora';
 import { Inicio } from './pages/Inicio';
 import { Login } from './pages/Login';
+import { Navios } from './pages/Navios';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Procedimentos } from './pages/gestor/Procedimentos';
 import { Usuarios } from './pages/gestor/Usuarios';
@@ -77,6 +78,11 @@ function Shell({ usuario }: { usuario: Usuario }) {
             <Button component={Link} to="/agora" variant="subtle" size="compact-md">
               Agora
             </Button>
+            {usuario.role !== 'VISTORIADOR' && (
+              <Button component={Link} to="/navios" variant="subtle" size="compact-md">
+                Navios
+              </Button>
+            )}
             {usuario.role === 'GESTOR' && (
               <>
                 <Button
@@ -119,6 +125,7 @@ export function AppRoutes() {
       <Route element={<AreaLogada />}>
         <Route index element={<Inicio />} />
         <Route path="/agora" element={<Agora />} />
+        <Route path="/navios" element={<Navios />} />
         <Route path="/gestor/usuarios" element={<Usuarios />} />
         <Route path="/gestor/procedimentos" element={<Procedimentos />} />
         <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
