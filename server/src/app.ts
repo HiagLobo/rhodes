@@ -8,6 +8,7 @@ import type DatabaseType from 'better-sqlite3';
 
 import type { Db } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
+import { catalogoRoutes } from './routes/catalogo.js';
 import { healthRoutes } from './routes/health.js';
 import { usuariosRoutes } from './routes/usuarios.js';
 
@@ -36,6 +37,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(healthRoutes, { sqlite: opts.sqlite });
   app.register(authRoutes, { db: opts.db });
   app.register(usuariosRoutes, { db: opts.db });
+  app.register(catalogoRoutes, { db: opts.db });
 
   const staticRoot =
     opts.staticRoot !== undefined

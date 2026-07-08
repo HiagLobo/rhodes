@@ -77,3 +77,68 @@ export type Procedimento = {
   ativo: boolean;
   metodoAtual: MetodoVersao | null;
 };
+
+export type ProcedimentoDetalhe = Procedimento & { historico: MetodoVersao[] };
+
+// ------------------------- payloads da API do catálogo (S3) -------------------------
+
+export const criarAreaSchema = z.object({
+  nome: z.string().trim().min(1).max(120),
+  pesoCriticidade: z.number().min(0.1).max(10).optional(),
+});
+export type CriarAreaPayload = z.infer<typeof criarAreaSchema>;
+
+export const editarAreaSchema = z.object({
+  pesoCriticidade: z.number().min(0.1).max(10),
+});
+export type EditarAreaPayload = z.infer<typeof editarAreaSchema>;
+
+/** Campos operacionais editáveis do procedimento — o MÉTODO nunca entra aqui (é versionado). */
+const camposOperacionais = {
+  areaId: z.number().int().positive(),
+  atividade: z.string().trim().min(1).max(500),
+  frequency: frequenciaSchema,
+  scheduleMode: scheduleModeSchema,
+  graceDays: z.number().int().min(0).max(60),
+  triggerType: triggerTypeSchema,
+  shipPhase: shipPhaseSchema.nullable(),
+  leadDays: z.number().int().min(0).max(30).nullable(),
+  limitacoes: z.string().trim().min(1).max(1000).nullable(),
+};
+
+export const criarProcedimentoSchema = z.object({
+  ...camposOperacionais,
+  scheduleMode: scheduleModeSchema.optional(),
+  graceDays: camposOperacionais.graceDays.optional(),
+  triggerType: triggerTypeSchema.optional(),
+  shipPhase: shipPhaseSchema.nullable().optional(),
+  leadDays: camposOperacionais.leadDays.optional(),
+  limitacoes: camposOperacionais.limitacoes.optional(),
+  metodo: z.string().trim().min(1).max(5000),
+});
+export type CriarProcedimentoPayload = z.infer<typeof criarProcedimentoSchema>;
+
+export const editarProcedimentoSchema = z
+  .object({
+    areaId: camposOperacionais.areaId.optional(),
+    atividade: camposOperacionais.atividade.optional(),
+    frequency: frequenciaSchema.optional(),
+    scheduleMode: scheduleModeSchema.optional(),
+    graceDays: camposOperacionais.graceDays.optional(),
+    triggerType: triggerTypeSchema.optional(),
+    shipPhase: shipPhaseSchema.nullable().optional(),
+    leadDays: camposOperacionais.leadDays.optional(),
+    limitacoes: camposOperacionais.limitacoes.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Nada para editar.' });
+export type EditarProcedimentoPayload = z.infer<typeof editarProcedimentoSchema>;
+
+export const novaVersaoMetodoSchema = z.object({
+  texto: z.string().trim().min(1).max(5000),
+});
+export type NovaVersaoMetodoPayload = z.infer<typeof novaVersaoMetodoSchema>;
+
+/** Modo default por frequência (mesma regra do seed): rotinas curtas ancoram no calendário. */
+export function scheduleModeDefault(frequencia: Frequencia): ScheduleMode {
+  return frequencia === 'DIARIO' || frequencia === 'SEMANAL' ? 'FIXED' : 'FLOATING';
+}
