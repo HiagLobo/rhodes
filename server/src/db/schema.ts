@@ -78,6 +78,8 @@ export const taskTemplates = sqliteTable('task_templates', {
   ),
   // Âncora semanal do modo FIXED (0=domingo…6=sábado); NULL = segunda para SEMANAL (Onda 03).
   fixedDow: integer('fixed_dow'),
+  // Anti-fraude básico (Onda 05): DEPOIS − ANTES precisa de pelo menos N minutos.
+  minFotosIntervaloMin: integer('min_fotos_intervalo_min').notNull().default(5),
   ativo: integer('ativo', { mode: 'boolean' }).notNull().default(true),
   criadoEm: integer('criado_em', { mode: 'timestamp' })
     .notNull()
@@ -232,6 +234,32 @@ export const photos = sqliteTable(
     uniqueIndex('photos_sha256_uq').on(t.sha256),
     index('photos_instance_idx').on(t.instanceId),
   ],
+);
+
+/**
+ * Partes de execução multi-dia (Onda 05/S2) — "MPL de paredes leva dias". Cada linha é um
+ * fechamento parcial COM evidência própria (fotos da mesma `parte`). Append-only por
+ * convenção: não existe rota de update/delete; corrigir = registrar a parte seguinte.
+ * A conclusão final NÃO gera linha aqui — é a própria instância fechando.
+ */
+export const execucaoPartes = sqliteTable(
+  'execucao_partes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    instanceId: integer('instance_id')
+      .notNull()
+      .references(() => taskInstances.id),
+    parte: integer('parte').notNull(),
+    percentualAcumulado: integer('percentual_acumulado').notNull(),
+    observacao: text('observacao'),
+    executanteId: integer('executante_id')
+      .notNull()
+      .references(() => users.id),
+    criadoEm: integer('criado_em', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique('execucao_partes_instance_parte_uq').on(t.instanceId, t.parte)],
 );
 
 /**

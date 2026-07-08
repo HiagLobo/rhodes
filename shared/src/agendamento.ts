@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { Frequencia, TriggerType } from './catalogo.js';
+import type { FotoResumo } from './foto.js';
 
 /**
  * Estados de uma instância de tarefa (Onda 03). OVERDUE é MATERIALIZADO pelo dailyJob —
@@ -90,4 +91,38 @@ export type InstanciaResumo = {
   status: InstanceStatus;
   origin: InstanceOrigin;
   executanteLogin: string | null;
+};
+
+// ------------------------- execução com evidência (Onda 05) -------------------------
+
+/** Fechamento parcial de tarefa multi-dia — sempre < 100% (100% = concluir de verdade). */
+export const registrarParteSchema = z.object({
+  percentualAcumulado: z.number().int().min(1).max(99),
+  observacao: z.string().trim().max(500).optional(),
+});
+
+export type RegistrarPartePayload = z.infer<typeof registrarParteSchema>;
+
+export type ParteResumo = {
+  parte: number;
+  percentualAcumulado: number;
+  observacao: string | null;
+  executante: string | null;
+  criadoEm: string;
+};
+
+/** Contrato do GET /api/instancias/:id — a tela de execução da S4 lê exatamente isto. */
+export type InstanciaDetalhe = InstanciaResumo & {
+  limitacoes: string | null;
+  /** Texto da versão VIGENTE do método ("como será feito"). */
+  metodo: string | null;
+  minFotosIntervaloMin: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  fotos: FotoResumo[];
+  partes: ParteResumo[];
+  /** Ordinal da parte em andamento (fotos novas contam para ela). */
+  parteCorrente: number;
+  /** Soma de max(DEPOIS)−min(ANTES) das partes com evidência completa; null sem par. */
+  tempoExecucaoSeg: number | null;
 };

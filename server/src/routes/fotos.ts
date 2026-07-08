@@ -16,6 +16,7 @@ import {
   type FotoRow,
 } from '../services/photos/armazenar.js';
 import { agendarThumbnail, caminhoThumb } from '../services/photos/thumbnails.js';
+import { parteCorrente } from '../services/scheduler/validar-evidencia.js';
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
 
@@ -99,7 +100,7 @@ export const fotosRoutes: FastifyPluginCallback<{ db: Db; dataDir: string }> = (
         dataDir,
         {
           instanciaId: inst.id,
-          parte: 1, // ordinal fixo até a S2 (execucao_partes) — multi-dia ainda não existe
+          parte: parteCorrente(db, inst.id), // fotos novas valem para a parte em andamento
           campos: campos.data,
           contentType: arquivo.mimetype,
           binario,

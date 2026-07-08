@@ -11,6 +11,7 @@ import { seedCatalogo } from '../src/db/seed-catalogo.js';
 import { seedDev, SENHA_DEV } from '../src/db/seed.js';
 import { resetRateLimit } from '../src/lib/auth.js';
 import { dailyJob } from '../src/services/scheduler/daily-job.js';
+import { plantarEvidencia } from './helpers/evidencia.js';
 
 async function novoApp() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhodes-navios-api-'));
@@ -171,7 +172,8 @@ describe('transições e validação de eventAt', () => {
     ).json() as { resumo: RodadaResumo; itens: Array<{ id: number }> };
     expect(rodada.resumo).toEqual({ total: 9, concluidas: 0 });
 
-    // concluir uma da rodada atualiza o resumo
+    // concluir uma da rodada atualiza o resumo (conclusão real: evidência plantada)
+    plantarEvidencia(sqlite, rodada.itens[0]!.id, 'executante.teste');
     await app.inject({
       method: 'POST',
       url: `/api/instancias/${rodada.itens[0]!.id}/concluir`,

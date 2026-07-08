@@ -57,6 +57,13 @@
       "when": 1783518910803,
       "tag": "0007_fotos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1783519349369,
+      "tag": "0008_partes",
+      "breakpoints": true
     }
   ]
 }

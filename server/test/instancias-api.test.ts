@@ -11,6 +11,7 @@ import { seedCatalogo } from '../src/db/seed-catalogo.js';
 import { seedDev, SENHA_DEV } from '../src/db/seed.js';
 import { resetRateLimit } from '../src/lib/auth.js';
 import { dailyJob } from '../src/services/scheduler/daily-job.js';
+import { plantarEvidencia } from './helpers/evidencia.js';
 
 async function novoApp() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rhodes-inst-api-'));
@@ -97,6 +98,7 @@ describe('iniciar / concluir', () => {
     expect(emExecucao.status).toBe('IN_PROGRESS');
     expect(emExecucao.executanteLogin).toBe('executante.teste');
 
+    plantarEvidencia(sqlite, alvo.id, 'executante.teste'); // conclusão real exige ANTES+DEPOIS
     const fim = await app.inject({
       method: 'POST',
       url: `/api/instancias/${alvo.id}/concluir`,
@@ -141,6 +143,7 @@ describe('iniciar / concluir', () => {
     expect(denovo.statusCode).toBe(409);
     expect(denovo.body).toContain('executante.teste');
 
+    plantarEvidencia(sqlite, alvo!.id, 'executante.teste');
     await app.inject({
       method: 'POST',
       url: `/api/instancias/${alvo!.id}/concluir`,
@@ -218,6 +221,7 @@ describe('override de data (gestor)', () => {
       url: `/api/instancias/${alvo!.id}/iniciar`,
       headers: { cookie: exec },
     });
+    plantarEvidencia(sqlite, alvo!.id, 'executante.teste');
     await app.inject({
       method: 'POST',
       url: `/api/instancias/${alvo!.id}/concluir`,

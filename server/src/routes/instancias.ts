@@ -2,19 +2,47 @@ import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
   overrideDueSchema,
+  registrarParteSchema,
   somarDias,
   STATUS_ABERTOS,
+  type FotoResumo,
+  type InstanciaDetalhe,
   type InstanciaResumo,
+  type ParteResumo,
 } from '@rhodes/shared';
 import { z } from 'zod';
 
 import type { Db } from '../db/index.js';
-import { areas, taskInstances, taskTemplates, users } from '../db/schema.js';
+import {
+  areas,
+  execucaoPartes,
+  metodoVersoes,
+  photos,
+  taskInstances,
+  taskTemplates,
+  users,
+} from '../db/schema.js';
 import { audit } from '../lib/audit.js';
 import { requireRole, requireUser } from '../lib/auth.js';
 import { ConclusaoInvalidaError, onComplete } from '../services/scheduler/on-complete.js';
+import {
+  EvidenciaInvalidaError,
+  parteCorrente,
+  tempoPorPartes,
+  validarEvidencia,
+  type FotoEvidencia,
+} from '../services/scheduler/validar-evidencia.js';
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
+
+/** Linha de `photos` → shape mínimo do validador de evidência. */
+function paraEvidencia(f: { tipo: string; parte: number; receivedAt: string | Date }): FotoEvidencia {
+  return {
+    tipo: f.tipo,
+    parte: f.parte,
+    receivedAt: f.receivedAt instanceof Date ? f.receivedAt : new Date(f.receivedAt),
+  };
+}
 
 export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, done) => {
   const { db } = opts;
@@ -101,11 +129,205 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
     return reply.send(atualizada);
   });
 
-  // PROVISÓRIA (Onda 03): a Onda 05 passa a EXIGIR foto ANTES+DEPOIS válidas neste endpoint
-  // antes de chamar o onComplete (imutável 3 — conclusão validada no backend).
+  /** Fotos da instância no shape que o validador entende (received_at é a verdade). */
+  function fotosDe(instanciaId: number) {
+    return db.select().from(photos).where(eq(photos.instanceId, instanciaId)).all();
+  }
+
+  /**
+   * Detalhe de uma tarefa — contrato da tela de execução (S4): método vigente, evidência,
+   * partes e o tempo medido sozinho (received_at do servidor, nunca relógio do aparelho).
+   */
+  app.get('/api/instancias/:id', { preHandler: logado }, (req, reply) => {
+    const params = idParamSchema.safeParse(req.params);
+    if (!params.success) return reply.status(400).send({ erro: 'Dados inválidos.' });
+
+    const row = db
+      .select({
+        inst: taskInstances,
+        areaId: areas.id,
+        areaNome: areas.nome,
+        template: taskTemplates,
+        executanteLogin: users.login,
+      })
+      .from(taskInstances)
+      .innerJoin(taskTemplates, eq(taskInstances.templateId, taskTemplates.id))
+      .innerJoin(areas, eq(taskTemplates.areaId, areas.id))
+      .leftJoin(users, eq(taskInstances.executanteId, users.id))
+      .where(eq(taskInstances.id, params.data.id))
+      .get();
+    if (!row) return reply.status(404).send({ erro: 'Tarefa não encontrada.' });
+
+    const metodo = row.template.metodoVersaoAtualId
+      ? (db
+          .select({ texto: metodoVersoes.texto })
+          .from(metodoVersoes)
+          .where(eq(metodoVersoes.id, row.template.metodoVersaoAtualId))
+          .get()?.texto ?? null)
+      : null;
+
+    const fotos: FotoResumo[] = db
+      .select({ foto: photos, enviadoPor: users.login })
+      .from(photos)
+      .innerJoin(users, eq(photos.enviadoPorId, users.id))
+      .where(eq(photos.instanceId, row.inst.id))
+      .orderBy(asc(photos.id))
+      .all()
+      .map((r) => ({
+        id: r.foto.id,
+        instanceId: r.foto.instanceId,
+        tipo: r.foto.tipo as FotoResumo['tipo'],
+        parte: r.foto.parte,
+        capturedAt: r.foto.capturedAt.toISOString(),
+        receivedAt: r.foto.receivedAt.toISOString(),
+        skewMs: r.foto.skewMs,
+        exifDatetime: r.foto.exifDatetime,
+        exifModel: r.foto.exifModel,
+        tamanhoBytes: r.foto.tamanhoBytes,
+        enviadoPor: r.enviadoPor,
+      }));
+
+    const partes: ParteResumo[] = db
+      .select({ parte: execucaoPartes, executante: users.login })
+      .from(execucaoPartes)
+      .innerJoin(users, eq(execucaoPartes.executanteId, users.id))
+      .where(eq(execucaoPartes.instanceId, row.inst.id))
+      .orderBy(asc(execucaoPartes.parte))
+      .all()
+      .map((r) => ({
+        parte: r.parte.parte,
+        percentualAcumulado: r.parte.percentualAcumulado,
+        observacao: r.parte.observacao,
+        executante: r.executante,
+        criadoEm: r.parte.criadoEm.toISOString(),
+      }));
+
+    const detalhe: InstanciaDetalhe = {
+      id: row.inst.id,
+      templateId: row.inst.templateId,
+      areaId: row.areaId,
+      areaNome: row.areaNome,
+      atividade: row.template.atividade,
+      frequency: row.template.frequency as InstanciaDetalhe['frequency'],
+      triggerType: row.template.triggerType as InstanciaDetalhe['triggerType'],
+      dueDate: row.inst.dueDate,
+      windowEnd: row.inst.windowEnd,
+      status: row.inst.status as InstanciaDetalhe['status'],
+      origin: row.inst.origin as InstanciaDetalhe['origin'],
+      executanteLogin: row.executanteLogin,
+      limitacoes: row.template.limitacoes,
+      metodo,
+      minFotosIntervaloMin: row.template.minFotosIntervaloMin,
+      startedAt: row.inst.startedAt?.toISOString() ?? null,
+      finishedAt: row.inst.finishedAt?.toISOString() ?? null,
+      fotos,
+      partes,
+      parteCorrente: parteCorrente(db, row.inst.id),
+      tempoExecucaoSeg: tempoPorPartes(fotos.map(paraEvidencia)),
+    };
+    return reply.send(detalhe);
+  });
+
+  /** Fechamento parcial multi-dia — exige evidência completa DA PARTE (imutável 3). */
+  app.post('/api/instancias/:id/partes', { preHandler: executa }, (req, reply) => {
+    const params = idParamSchema.safeParse(req.params);
+    const body = registrarParteSchema.safeParse(req.body);
+    if (!params.success || !body.success) {
+      return reply.status(400).send({ erro: 'Dados inválidos.' });
+    }
+
+    const inst = db.select().from(taskInstances).where(eq(taskInstances.id, params.data.id)).get();
+    if (!inst) return reply.status(404).send({ erro: 'Tarefa não encontrada.' });
+    if (inst.status !== 'IN_PROGRESS') {
+      return reply.status(409).send({ erro: 'Inicie a tarefa antes de registrar uma parte.' });
+    }
+    if (inst.executanteId !== req.user!.id) {
+      return reply.status(403).send({ erro: 'Só quem iniciou a tarefa registra partes.' });
+    }
+
+    const ultima = db
+      .select({ pct: sql<number>`max(${execucaoPartes.percentualAcumulado})` })
+      .from(execucaoPartes)
+      .where(eq(execucaoPartes.instanceId, inst.id))
+      .get();
+    if (body.data.percentualAcumulado <= (ultima?.pct ?? 0)) {
+      return reply.status(400).send({ erro: 'O percentual precisa avançar em relação à última parte.' });
+    }
+
+    const template = db
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, inst.templateId))
+      .get()!;
+    const parte = parteCorrente(db, inst.id);
+    let tempoSegParte: number;
+    try {
+      tempoSegParte = validarEvidencia(
+        fotosDe(inst.id).map(paraEvidencia),
+        parte,
+        template.minFotosIntervaloMin,
+      ).tempoSeg;
+    } catch (err) {
+      if (err instanceof EvidenciaInvalidaError) return reply.status(409).send({ erro: err.message });
+      throw err;
+    }
+
+    const criada = db.transaction((tx) => {
+      const t = tx as unknown as Db;
+      const row = t
+        .insert(execucaoPartes)
+        .values({
+          instanceId: inst.id,
+          parte,
+          percentualAcumulado: body.data.percentualAcumulado,
+          observacao: body.data.observacao ?? null,
+          executanteId: req.user!.id,
+        })
+        .returning()
+        .get()!;
+      audit(t, {
+        ator: { id: req.user!.id, login: req.user!.login },
+        acao: 'PARTE_REGISTRADA',
+        entidade: 'task_instances',
+        entidadeId: inst.id,
+        depois: { parte, percentualAcumulado: body.data.percentualAcumulado, tempoSegParte },
+        ip: req.ip,
+      });
+      return row;
+    });
+
+    return reply.status(201).send({
+      parte: criada.parte,
+      percentualAcumulado: criada.percentualAcumulado,
+      tempoSegParte,
+    });
+  });
+
+  // CONCLUSÃO REAL (Onda 05, substitui a provisória da 03): sem foto ANTES+DEPOIS válidas
+  // da parte corrente o backend rejeita — a UI é casca (imutável 3). O motor segue intocado.
   app.post('/api/instancias/:id/concluir', { preHandler: executa }, (req, reply) => {
     const params = idParamSchema.safeParse(req.params);
     if (!params.success) return reply.status(400).send({ erro: 'Dados inválidos.' });
+
+    const inst = db.select().from(taskInstances).where(eq(taskInstances.id, params.data.id)).get();
+    if (!inst) return reply.status(404).send({ erro: 'Tarefa não encontrada.' });
+    if (!(STATUS_ABERTOS as readonly string[]).includes(inst.status)) {
+      return reply.status(409).send({ erro: 'Instância já fechada — nada para concluir.' });
+    }
+
+    const template = db
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.id, inst.templateId))
+      .get()!;
+    const evidencias = fotosDe(inst.id).map(paraEvidencia);
+    try {
+      validarEvidencia(evidencias, parteCorrente(db, inst.id), template.minFotosIntervaloMin);
+    } catch (err) {
+      if (err instanceof EvidenciaInvalidaError) return reply.status(409).send({ erro: err.message });
+      throw err;
+    }
+
     try {
       const r = onComplete(
         db,
@@ -117,6 +339,7 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
       return reply.send({
         statusFinal: r.statusFinal,
         proximaDue: r.proxima?.dueDate ?? null,
+        tempoExecucaoSeg: tempoPorPartes(evidencias),
       });
     } catch (err) {
       if (err instanceof ConclusaoInvalidaError) {
