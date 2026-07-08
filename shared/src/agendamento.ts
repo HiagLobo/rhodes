@@ -70,6 +70,11 @@ export const dataOperacionalSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data no formato YYYY-MM-DD');
 
+/** Payload do PATCH /api/instancias/:id/due-date (override do gestor — auditado). */
+export const overrideDueSchema = z.object({ dueDate: dataOperacionalSchema });
+
+export type OverrideDuePayload = z.infer<typeof overrideDueSchema>;
+
 // ------------------------- tipos públicos (lista AGORA) -------------------------
 
 export type InstanciaResumo = {

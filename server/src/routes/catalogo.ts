@@ -15,10 +15,13 @@ import {
 } from '@rhodes/shared';
 import { z } from 'zod';
 
+import { dataRecife } from '@rhodes/shared';
+
 import type { Db } from '../db/index.js';
 import { areas, metodoVersoes, taskTemplates, users } from '../db/schema.js';
 import { audit } from '../lib/audit.js';
 import { requireRole, requireUser } from '../lib/auth.js';
+import { abertaDoTemplate, criarInstancia } from '../services/scheduler/instancias.js';
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
 const listaQuerySchema = z.object({
@@ -381,6 +384,11 @@ export const catalogoRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
         .where(eq(taskTemplates.id, antes.id))
         .returning()
         .get()!;
+      // Reativar um procedimento que já teve instâncias (todas fechadas) o deixaria órfão —
+      // o bootstrap do dailyJob só cobre "zero instâncias" (achado da revisão da Onda 03/S2).
+      if (acao === 'reativar' && depois.triggerType !== 'SHIP_EVENT' && !abertaDoTemplate(db, depois.id)) {
+        criarInstancia(db, depois, { due: dataRecife(new Date()) });
+      }
       audit(db, {
         ator: { id: req.user!.id, login: req.user!.login },
         acao: acao === 'desativar' ? 'PROCEDIMENTO_DESATIVADO' : 'PROCEDIMENTO_REATIVADO',

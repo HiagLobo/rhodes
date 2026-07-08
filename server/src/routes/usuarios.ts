@@ -8,6 +8,7 @@ import { users } from '../db/schema.js';
 import { audit } from '../lib/audit.js';
 import { requireRole, revogarSessoesDoUsuario } from '../lib/auth.js';
 import { hashSenha, validarNovaSenha } from '../lib/passwords.js';
+import { liberarInstanciasDe } from '../services/scheduler/instancias.js';
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
 
@@ -119,6 +120,8 @@ export const usuariosRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
       .returning()
       .get()!;
     revogarSessoesDoUsuario(db, alvo.id);
+    // Tarefas em execução presas com o desativado voltam para a fila (imutável 10; Onda 03).
+    liberarInstanciasDe(db, alvo.id, { id: req.user!.id, login: req.user!.login });
 
     audit(db, {
       ator: { id: req.user!.id, login: req.user!.login },

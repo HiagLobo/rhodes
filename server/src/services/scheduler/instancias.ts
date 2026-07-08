@@ -3,6 +3,7 @@ import { somarDias, STATUS_ABERTOS, type InstanceOrigin } from '@rhodes/shared';
 
 import type { Db } from '../../db/index.js';
 import { taskInstances, taskTemplates } from '../../db/schema.js';
+import { audit } from '../../lib/audit.js';
 
 export type TemplateRow = typeof taskTemplates.$inferSelect;
 export type InstanciaRow = typeof taskInstances.$inferSelect;
@@ -42,4 +43,31 @@ export function criarInstancia(
     })
     .returning()
     .get();
+}
+
+/**
+ * Devolve para a fila as IN_PROGRESS presas com um usuário (desativação — imutável 10):
+ * voltam a PENDING sem executante, auditadas uma a uma. Retorna quantas liberou.
+ */
+export function liberarInstanciasDe(db: Db, userId: number, ator: { id: number; login: string }): number {
+  const presas = db
+    .select()
+    .from(taskInstances)
+    .where(and(eq(taskInstances.executanteId, userId), eq(taskInstances.status, 'IN_PROGRESS')))
+    .all();
+  for (const inst of presas) {
+    db.update(taskInstances)
+      .set({ status: 'PENDING', executanteId: null, startedAt: null })
+      .where(eq(taskInstances.id, inst.id))
+      .run();
+    audit(db, {
+      ator,
+      acao: 'INSTANCIA_LIBERADA',
+      entidade: 'task_instances',
+      entidadeId: inst.id,
+      antes: { status: 'IN_PROGRESS', executanteId: userId },
+      depois: { status: 'PENDING', executanteId: null },
+    });
+  }
+  return presas.length;
 }

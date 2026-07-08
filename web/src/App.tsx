@@ -14,6 +14,7 @@ import { APP_NAME, type Usuario } from '@rhodes/shared';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router';
 
 import { api } from './lib/api';
+import { Agora } from './pages/Agora';
 import { Inicio } from './pages/Inicio';
 import { Login } from './pages/Login';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
@@ -73,6 +74,9 @@ function Shell({ usuario }: { usuario: Usuario }) {
             <Text fw={800} size="lg" component={Link} to="/" style={{ textDecoration: 'none' }}>
               Rhodes · Limpeza
             </Text>
+            <Button component={Link} to="/agora" variant="subtle" size="compact-md">
+              Agora
+            </Button>
             {usuario.role === 'GESTOR' && (
               <>
                 <Button
@@ -114,6 +118,7 @@ export function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route element={<AreaLogada />}>
         <Route index element={<Inicio />} />
+        <Route path="/agora" element={<Agora />} />
         <Route path="/gestor/usuarios" element={<Usuarios />} />
         <Route path="/gestor/procedimentos" element={<Procedimentos />} />
         <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
