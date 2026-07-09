@@ -18,6 +18,7 @@ import { Agora } from './pages/Agora';
 import { Inicio } from './pages/Inicio';
 import { Login } from './pages/Login';
 import { Navios } from './pages/Navios';
+import { Tv } from './pages/Tv';
 import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Fila } from './pages/vistoria/Fila';
@@ -55,14 +56,18 @@ function AreaLogada() {
   if (estado === 'anonimo') {
     return <Navigate to="/login" replace />;
   }
+  // Guarda só provê o contexto e delega o layout ao Outlet — assim a /tv fica autenticada
+  // porém FORA do Shell (tela cheia de andon, sem header).
   return (
     <UsuarioContext.Provider value={estado}>
-      <Shell usuario={estado} />
+      <Outlet />
     </UsuarioContext.Provider>
   );
 }
 
-function Shell({ usuario }: { usuario: Usuario }) {
+/** Layout com header (todas as telas de operação menos a /tv). */
+function Shell() {
+  const usuario = useUsuario();
   const navigate = useNavigate();
 
   async function sair() {
@@ -104,6 +109,9 @@ function Shell({ usuario }: { usuario: Usuario }) {
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
                 </Button>
+                <Button component={Link} to="/tv" variant="subtle" size="compact-md">
+                  TV
+                </Button>
               </>
             )}
           </Group>
@@ -131,15 +139,19 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<AreaLogada />}>
-        <Route index element={<Inicio />} />
-        <Route path="/agora" element={<Agora />} />
-        <Route path="/tarefas/:id" element={<Tarefa />} />
-        <Route path="/navios" element={<Navios />} />
-        <Route path="/vistoria" element={<Fila />} />
-        <Route path="/vistoria/:id" element={<Inspecao />} />
-        <Route path="/gestor/usuarios" element={<Usuarios />} />
-        <Route path="/gestor/procedimentos" element={<Procedimentos />} />
-        <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
+        {/* /tv: autenticada, mas sem o Shell (fullscreen andon) */}
+        <Route path="/tv" element={<Tv />} />
+        <Route element={<Shell />}>
+          <Route index element={<Inicio />} />
+          <Route path="/agora" element={<Agora />} />
+          <Route path="/tarefas/:id" element={<Tarefa />} />
+          <Route path="/navios" element={<Navios />} />
+          <Route path="/vistoria" element={<Fila />} />
+          <Route path="/vistoria/:id" element={<Inspecao />} />
+          <Route path="/gestor/usuarios" element={<Usuarios />} />
+          <Route path="/gestor/procedimentos" element={<Procedimentos />} />
+          <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
