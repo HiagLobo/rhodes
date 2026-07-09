@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Alert,
@@ -7,68 +7,210 @@ import {
   Container,
   Group,
   Loader,
+  Modal,
+  Paper,
+  SimpleGrid,
   Stack,
   Text,
   Title,
 } from '@mantine/core';
-import { APP_NAME } from '@rhodes/shared';
+import {
+  grupoDaArea,
+  type DashboardPayload,
+  type GrupoGrade,
+  type InstanciaResumo,
+  type SituacaoGrupo,
+} from '@rhodes/shared';
+import { useNavigate } from 'react-router';
 
-type Health = { status: string; db: string; version: string };
+import { api } from '../lib/api';
+import { BANDAS } from '../theme';
 
-type Estado = { fase: 'carregando' } | { fase: 'erro' } | { fase: 'ok'; health: Health };
+/** Situação da grade → cor da banda oficial (decisão da Onda 07). */
+const COR_SITUACAO: Record<SituacaoGrupo, string> = {
+  OVERDUE: BANDAS.critico,
+  HOJE: BANDAS.atencao,
+  FUTURA: BANDAS.bom,
+  NENHUMA: BANDAS.excelente,
+};
 
-/** Página inicial provisória — prova o shell e o padrão de 3 estados (vazio/carregando/erro). */
+type Estado =
+  | { fase: 'carregando' }
+  | { fase: 'erro' }
+  | { fase: 'ok'; dash: DashboardPayload; agora: InstanciaResumo[] };
+
+/** Dashboard "Agora" (Onda 07): cartões + grade da planta + navio ativo. */
 export function Inicio() {
+  const navigate = useNavigate();
   const [estado, setEstado] = useState<Estado>({ fase: 'carregando' });
+  const [grupoAberto, setGrupoAberto] = useState<GrupoGrade | null>(null);
 
-  const verificarServidor = useCallback(() => {
+  const carregar = useCallback(() => {
     setEstado({ fase: 'carregando' });
-    fetch('/api/health')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as Health;
-      })
-      .then((health) => setEstado({ fase: 'ok', health }))
+    // grade+cartões e a lista da AGORA (fonte única do drill-down) numa tacada
+    Promise.all([api<DashboardPayload>('/api/dashboard'), api<InstanciaResumo[]>('/api/agora')])
+      .then(([dash, agora]) => setEstado({ fase: 'ok', dash, agora }))
       .catch(() => setEstado({ fase: 'erro' }));
   }, []);
 
   useEffect(() => {
-    verificarServidor();
-  }, [verificarServidor]);
+    carregar();
+  }, [carregar]);
+
+  const tarefasDoGrupo = useMemo(() => {
+    if (estado.fase !== 'ok' || !grupoAberto) return [];
+    return estado.agora.filter((i) => grupoDaArea(i.areaNome) === grupoAberto.grupo);
+  }, [estado, grupoAberto]);
 
   return (
-    <Container size="sm" py="xl">
+    <Container size="lg" py="md">
       <Stack gap="lg">
-        <Title order={1}>{APP_NAME}</Title>
-        <Text size="lg" fw={600} c="dimmed">
-          Porto do Recife — plano mestre de limpeza
-        </Text>
+        <Group justify="space-between">
+          <Title order={2}>Agora</Title>
+          <Group gap="xs">
+            <Button variant="filled" color="indigo" onClick={() => navigate('/navios')}>
+              ⚓ Registrar navio
+            </Button>
+            <Button variant="default" onClick={carregar}>
+              Atualizar
+            </Button>
+          </Group>
+        </Group>
 
         {estado.fase === 'carregando' && (
           <Group gap="sm">
             <Loader size="sm" />
-            <Text fw={600}>Conectando ao servidor…</Text>
+            <Text fw={600}>Carregando o painel…</Text>
           </Group>
         )}
 
         {estado.fase === 'erro' && (
-          <Alert color="red" title="Servidor fora do ar">
-            <Stack gap="sm">
-              <Text>Não foi possível falar com o servidor da Rhodes na rede local.</Text>
-              <Button onClick={verificarServidor}>Tentar novamente</Button>
-            </Stack>
+          <Alert color="red" title="Não foi possível carregar">
+            <Button onClick={carregar}>Tentar novamente</Button>
           </Alert>
         )}
 
         {estado.fase === 'ok' && (
-          <Group gap="sm">
-            <Badge color="green" size="lg">
-              Servidor no ar
-            </Badge>
-            <Text fw={600}>versão {estado.health.version}</Text>
-          </Group>
+          <>
+            <SimpleGrid cols={{ base: 2, sm: 4 }}>
+              <Cartao titulo="Atrasadas" valor={estado.dash.cartoes.atrasadas} cor={BANDAS.critico} />
+              <Cartao titulo="Hoje" valor={estado.dash.cartoes.hoje} cor={BANDAS.atencao} />
+              <Cartao
+                titulo="Aguardando vistoria"
+                valor={estado.dash.cartoes.aguardandoVistoria}
+                cor={BANDAS.bom}
+              />
+              <Cartao titulo="Score 30d" valor="—" cor="#495057" nota="a partir da Onda 08" />
+            </SimpleGrid>
+
+            {estado.dash.rodada && (
+              <Paper withBorder p="sm" style={{ borderLeftColor: BANDAS.excelente, borderLeftWidth: 6 }}>
+                <Group justify="space-between">
+                  <Text fw={700}>
+                    ⚓ {estado.dash.rodada.navio}
+                    {estado.dash.rodada.status === 'ANUNCIADO'
+                      ? ` — aguardando atracação · ETA ${estado.dash.rodada.etaDate}`
+                      : ` — ${estado.dash.rodada.status}`}
+                  </Text>
+                  {estado.dash.rodada.total > 0 && (
+                    <Badge size="lg" color="indigo">
+                      rodada {estado.dash.rodada.concluidas} de {estado.dash.rodada.total}
+                    </Badge>
+                  )}
+                </Group>
+              </Paper>
+            )}
+
+            <Stack gap="xs">
+              <Text fw={800}>Planta</Text>
+              {estado.dash.grade.length === 0 ? (
+                <Alert color="green" title="Tudo em dia">
+                  Nenhuma tarefa aberta no momento.
+                </Alert>
+              ) : (
+                <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }}>
+                  {estado.dash.grade.map((g) => (
+                    <Paper
+                      key={g.grupo}
+                      p="sm"
+                      style={{
+                        background: COR_SITUACAO[g.situacao],
+                        color: '#fff',
+                        cursor: 'pointer',
+                        minHeight: 84,
+                      }}
+                      onClick={() => setGrupoAberto(g)}
+                    >
+                      <Text fw={800}>{g.grupo}</Text>
+                      <Text size="sm">
+                        {g.atrasadas > 0 && `${g.atrasadas} atrasada(s) · `}
+                        {g.abertas} aberta(s)
+                      </Text>
+                    </Paper>
+                  ))}
+                </SimpleGrid>
+              )}
+            </Stack>
+          </>
         )}
       </Stack>
+
+      <Modal
+        opened={grupoAberto !== null}
+        onClose={() => setGrupoAberto(null)}
+        title={grupoAberto?.grupo ?? ''}
+        size="lg"
+      >
+        <Stack gap="xs">
+          {tarefasDoGrupo.length === 0 && <Text c="dimmed">Nenhuma tarefa aberta neste grupo.</Text>}
+          {tarefasDoGrupo.map((t) => (
+            <Paper key={t.id} withBorder p="xs">
+              <Group justify="space-between" wrap="nowrap">
+                <Stack gap={2} style={{ minWidth: 0 }}>
+                  <Text fw={600} lineClamp={1}>
+                    {t.atividade}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {t.areaNome} · vence {t.dueDate}
+                    {t.status === 'OVERDUE' && ' · ATRASADA'}
+                  </Text>
+                </Stack>
+                <Button size="compact-md" onClick={() => navigate(`/tarefas/${t.id}`)}>
+                  Abrir
+                </Button>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
+      </Modal>
     </Container>
+  );
+}
+
+function Cartao({
+  titulo,
+  valor,
+  cor,
+  nota,
+}: {
+  titulo: string;
+  valor: number | string;
+  cor: string;
+  nota?: string;
+}) {
+  return (
+    <Paper withBorder p="md" style={{ borderTopColor: cor, borderTopWidth: 6 }}>
+      <Text size="sm" fw={700} c="dimmed">
+        {titulo}
+      </Text>
+      <Text fw={900} style={{ fontSize: 44, lineHeight: 1.1, color: cor }}>
+        {valor}
+      </Text>
+      {nota && (
+        <Text size="xs" c="dimmed">
+          {nota}
+        </Text>
+      )}
+    </Paper>
   );
 }
