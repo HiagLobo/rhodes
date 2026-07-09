@@ -178,6 +178,16 @@ describe('montarDossieDados', () => {
       etaDate: hoje,
     });
     expect(pSem.navioLote).toBeNull();
+
+    // Filtro por RODADA: o dossiê traz só as instâncias daquela rodada, com o vínculo navio/lote.
+    const daRodada = montarDossieDados(
+      db,
+      { inicio: somarDias(hoje, -1), fim: hoje, roundId: ship.id, somenteReprovadasOuCriticas: false },
+      new Date(),
+    );
+    expect(daRodada.paginas.length).toBe(1);
+    expect(daRodada.paginas[0]!.instanceId).toBe(comNavio.id);
+    expect(daRodada.paginas[0]!.navioLote?.navio).toBe('MV TESTE');
   });
 
   it('somenteReprovadasOuCriticas mantém só páginas reprovadas/críticas', async () => {
