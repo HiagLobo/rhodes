@@ -20,6 +20,8 @@ import { Login } from './pages/Login';
 import { Navios } from './pages/Navios';
 import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
+import { Fila } from './pages/vistoria/Fila';
+import { Inspecao } from './pages/vistoria/Inspecao';
 import { Procedimentos } from './pages/gestor/Procedimentos';
 import { Usuarios } from './pages/gestor/Usuarios';
 import { cssVariablesResolver, theme } from './theme';
@@ -84,6 +86,11 @@ function Shell({ usuario }: { usuario: Usuario }) {
                 Navios
               </Button>
             )}
+            {usuario.role !== 'EXECUTANTE' && (
+              <Button component={Link} to="/vistoria" variant="subtle" size="compact-md">
+                Vistoria
+              </Button>
+            )}
             {usuario.role === 'GESTOR' && (
               <>
                 <Button
@@ -128,6 +135,8 @@ export function AppRoutes() {
         <Route path="/agora" element={<Agora />} />
         <Route path="/tarefas/:id" element={<Tarefa />} />
         <Route path="/navios" element={<Navios />} />
+        <Route path="/vistoria" element={<Fila />} />
+        <Route path="/vistoria/:id" element={<Inspecao />} />
         <Route path="/gestor/usuarios" element={<Usuarios />} />
         <Route path="/gestor/procedimentos" element={<Procedimentos />} />
         <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
