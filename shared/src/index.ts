@@ -11,3 +11,4 @@ export * from './justificativa.js';
 export * from './vistoria.js';
 export * from './dashboard.js';
 export * from './score.js';
+export * from './report.js';
