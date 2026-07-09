@@ -13,6 +13,7 @@ import {
 import { APP_NAME, type Usuario } from '@rhodes/shared';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router';
 
+import { BannerNotificacoes } from './components/BannerNotificacoes';
 import { api } from './lib/api';
 import { Agora } from './pages/Agora';
 import { Inicio } from './pages/Inicio';
@@ -135,6 +136,7 @@ function Shell() {
         </Group>
       </AppShell.Header>
       <AppShell.Main>
+        <BannerNotificacoes usuario={usuario} />
         <Outlet />
       </AppShell.Main>
     </AppShell>

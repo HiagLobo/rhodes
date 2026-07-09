@@ -1,20 +1,22 @@
-import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
   dataRecife,
   grupoDaArea,
   GRUPOS_PLANTA,
   situacaoDaInstancia,
+  somarDias,
   STATUS_ABERTOS,
   type DashboardPayload,
   type GrupoGrade,
   type GrupoPlanta,
   type InstanceStatus,
+  type Notificacoes,
   type SituacaoGrupo,
 } from '@rhodes/shared';
 
 import type { Db } from '../db/index.js';
-import { areas, inspections, shipOperations, taskInstances, taskTemplates } from '../db/schema.js';
+import { areas, inspections, justificativas, shipOperations, taskInstances, taskTemplates } from '../db/schema.js';
 import { requireUser } from '../lib/auth.js';
 
 /**
@@ -129,6 +131,72 @@ export const dashboardRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, do
       grade,
       rodada,
     };
+  });
+
+  /**
+   * Notificações por papel (polling da S6) — leitura pura e leve. Escalonada = OVERDUE cuja
+   * janela venceu há mais de 1 dia (proxy do "24–48 h" do §4.2), medida no dia operacional
+   * de Recife — NUNCA promove status; só filtra o que o dailyJob já materializou.
+   */
+  app.get('/api/notificacoes', { preHandler: logado }, (req): Notificacoes => {
+    const hoje = dataRecife(new Date());
+    const ontem = somarDias(hoje, -1);
+    const papel = req.user!.role;
+
+    const overdue = db
+      .select({ n: sql<number>`count(*)` })
+      .from(taskInstances)
+      .where(eq(taskInstances.status, 'OVERDUE'))
+      .get()!.n;
+    const escalonadas = db
+      .select({ n: sql<number>`count(*)` })
+      .from(taskInstances)
+      .where(and(eq(taskInstances.status, 'OVERDUE'), sql`${taskInstances.windowEnd} < ${ontem}`))
+      .get()!.n;
+    // pool: retrabalho aberto (rework_of não nulo) — sem dono, todos veem
+    const retrabalhos = db
+      .select({ n: sql<number>`count(*)` })
+      .from(taskInstances)
+      .where(and(inArray(taskInstances.status, [...STATUS_ABERTOS]), isNotNull(taskInstances.reworkOfInstanceId)))
+      .get()!.n;
+
+    let decisoes = 0;
+    if (papel === 'EXECUTANTE') {
+      // decisões das justificativas que ESTE executante criou, nas últimas 48 h
+      const limite = Math.floor(new Date(`${somarDias(hoje, -2)}T00:00:00Z`).getTime() / 1000);
+      decisoes = db
+        .select({ n: sql<number>`count(*)` })
+        .from(justificativas)
+        .where(
+          and(
+            eq(justificativas.criadoPorId, req.user!.id),
+            ne(justificativas.status, 'PENDENTE'),
+            sql`${justificativas.decididoEm} >= ${limite}`,
+          ),
+        )
+        .get()!.n;
+    }
+
+    let justificativasPendentes = 0;
+    if (papel === 'GESTOR') {
+      justificativasPendentes = db
+        .select({ n: sql<number>`count(*)` })
+        .from(justificativas)
+        .where(eq(justificativas.status, 'PENDENTE'))
+        .get()!.n;
+    }
+
+    let filaVistoria = 0;
+    if (papel === 'VISTORIADOR' || papel === 'GESTOR') {
+      filaVistoria = db
+        .select({ n: sql<number>`count(*)` })
+        .from(taskInstances)
+        .leftJoin(inspections, eq(inspections.instanceId, taskInstances.id))
+        .where(and(inArray(taskInstances.status, ['DONE_ON_TIME', 'DONE_LATE']), isNull(inspections.id)))
+        .get()!.n;
+    }
+
+    return { overdue, escalonadas, retrabalhos, decisoes, justificativasPendentes, filaVistoria };
   });
 
   done();

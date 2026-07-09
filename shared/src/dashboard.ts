@@ -95,3 +95,21 @@ export function situacaoDaInstancia(status: InstanceStatus, dueDate: string, hoj
   if (dueDate <= hoje) return 'HOJE';
   return 'FUTURA';
 }
+
+/**
+ * Notificações in-app (Onda 07/S6) — payload POR PAPEL, derivado stateless de SELECT (sem
+ * tabela nova, sem estado "lida"). Pool de tarefas: OVERDUE sem dono também é do executante.
+ * `escalonadas` = OVERDUE com windowEnd anterior a ontem (filtro de apresentação sobre status
+ * JÁ materializado — a leitura nunca promove PENDING→OVERDUE, imutável 4).
+ */
+export type Notificacoes = {
+  overdue: number;
+  escalonadas: number;
+  retrabalhos: number;
+  /** Executante: decisões de justificativa suas nas últimas 48 h. */
+  decisoes: number;
+  /** Gestor: justificativas aguardando decisão. */
+  justificativasPendentes: number;
+  /** Vistoriador: tamanho da fila de vistoria. */
+  filaVistoria: number;
+};

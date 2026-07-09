@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { dataRecife, grupoDaArea, somarDias, type DashboardPayload } from '@rhodes/shared';
+import { dataRecife, grupoDaArea, somarDias, type DashboardPayload, type Notificacoes } from '@rhodes/shared';
 
 import { buildApp } from '../src/app.js';
 import { createDb, runMigrations } from '../src/db/index.js';
@@ -205,6 +205,100 @@ describe('GET /api/dashboard', () => {
     const d = await dash(ctx, gestor);
     expect(d.rodada?.navio).toBe('MV Recente'); // a mais recente (maior id)
     expect(d.rodada?.status).toBe('ANUNCIADO');
+    await ctx.app.close();
+    ctx.sqlite.close();
+  });
+});
+
+async function notif(ctx: Ctx, cookie: string): Promise<Notificacoes> {
+  const res = await ctx.app.inject({ method: 'GET', url: '/api/notificacoes', headers: { cookie } });
+  expect(res.statusCode).toBe(200);
+  return res.json() as Notificacoes;
+}
+
+describe('GET /api/notificacoes', () => {
+  it('pool: OVERDUE nunca iniciada (executanteId NULL) aparece para o executante', async () => {
+    const ctx = await novoApp();
+    const exec = await loginDe(ctx.app, 'executante.teste');
+
+    const alvo = ctx.sqlite.prepare('SELECT id FROM task_instances LIMIT 1').get() as { id: number };
+    // OVERDUE sem dono (executante_id NULL — o caso central do negócio)
+    ctx.sqlite
+      .prepare("UPDATE task_instances SET status='OVERDUE', due_date='2026-01-01', window_end='2026-01-02', executante_id=NULL WHERE id=?")
+      .run(alvo.id);
+
+    const n = await notif(ctx, exec);
+    expect(n.overdue).toBeGreaterThanOrEqual(1); // vê a atrasada mesmo sem dono
+    await ctx.app.close();
+    ctx.sqlite.close();
+  });
+
+  it('escalonação = filtro de data: windowEnd=ontem NÃO escalona; anteontem SIM', async () => {
+    const ctx = await novoApp();
+    const gestor = await loginDe(ctx.app, 'gestor.teste');
+    const hoje = dataRecife(new Date());
+
+    const ids = ctx.sqlite.prepare('SELECT id FROM task_instances LIMIT 2').all() as { id: number }[];
+    // OVERDUE com janela vencida ONTEM → atrasada mas NÃO escalonada
+    ctx.sqlite
+      .prepare("UPDATE task_instances SET status='OVERDUE', due_date=?, window_end=? WHERE id=?")
+      .run(somarDias(hoje, -3), somarDias(hoje, -1), ids[0]!.id);
+    let n = await notif(ctx, gestor);
+    const overdueAntes = n.overdue;
+    expect(n.escalonadas).toBe(0);
+
+    // segunda OVERDUE com janela vencida ANTEONTEM → escalonada
+    ctx.sqlite
+      .prepare("UPDATE task_instances SET status='OVERDUE', due_date=?, window_end=? WHERE id=?")
+      .run(somarDias(hoje, -5), somarDias(hoje, -2), ids[1]!.id);
+    n = await notif(ctx, gestor);
+    expect(n.overdue).toBe(overdueAntes + 1);
+    expect(n.escalonadas).toBe(1);
+    await ctx.app.close();
+    ctx.sqlite.close();
+  });
+
+  it('decisão de justificativa criada pelo executante aparece em 48h; papéis recebem campos certos', async () => {
+    const ctx = await novoApp();
+    const exec = await loginDe(ctx.app, 'executante.teste');
+    const gestor = await loginDe(ctx.app, 'gestor.teste');
+
+    // executante justifica; gestor decide
+    const agora = (
+      await ctx.app.inject({ method: 'GET', url: '/api/agora', headers: { cookie: exec } })
+    ).json() as { id: number }[];
+    const jid = (
+      await ctx.app.inject({
+        method: 'POST',
+        url: `/api/instancias/${agora[0]!.id}/justificar`,
+        headers: { cookie: exec },
+        payload: { motivo: 'CHUVA' },
+      })
+    ).json() as { justificativaId: number };
+
+    // gestor vê pendente ANTES de decidir
+    expect((await notif(ctx, gestor)).justificativasPendentes).toBeGreaterThanOrEqual(1);
+
+    await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/justificativas/${jid.justificativaId}/decisao`,
+      headers: { cookie: gestor },
+      payload: { decisao: 'APROVADA' },
+    });
+
+    const nExec = await notif(ctx, exec);
+    expect(nExec.decisoes).toBe(1); // executante que criou vê a decisão
+    expect(nExec.justificativasPendentes).toBe(0); // campo de gestor zerado para executante
+
+    const nGestor = await notif(ctx, gestor);
+    expect(nGestor.justificativasPendentes).toBe(0); // decidida
+    expect(nGestor.decisoes).toBe(0); // campo de executante zerado para gestor
+
+    // vistoriador vê a fila, não as justificativas
+    const vist = await loginDe(ctx.app, 'vistoriador.teste');
+    const nVist = await notif(ctx, vist);
+    expect(nVist.filaVistoria).toBeGreaterThanOrEqual(0);
+    expect(nVist.justificativasPendentes).toBe(0);
     await ctx.app.close();
     ctx.sqlite.close();
   });
