@@ -78,6 +78,33 @@ export const overrideDueSchema = z.object({ dueDate: dataOperacionalSchema });
 
 export type OverrideDuePayload = z.infer<typeof overrideDueSchema>;
 
+/** Query do GET /api/calendario — mês YYYY-MM (default = mês corrente no servidor). */
+export const calendarioQuerySchema = z.object({
+  mes: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mês no formato YYYY-MM')
+    .optional(),
+});
+
+export type CalendarioQuery = z.infer<typeof calendarioQuerySchema>;
+
+/** Uma ocorrência no calendário: materializada (com status) ou projetada. */
+export type OcorrenciaCalendario = {
+  dia: string; // YYYY-MM-DD
+  templateId: number;
+  atividade: string;
+  areaNome: string;
+  status: InstanceStatus | null; // null = projetada
+  projetado: boolean;
+};
+
+export type CalendarioPayload = {
+  mes: string; // YYYY-MM
+  ocorrencias: OcorrenciaCalendario[];
+  /** Templates de navio sem projeção possível sem ETA — listados à parte. */
+  dependeDeNavio: { templateId: number; atividade: string; areaNome: string }[];
+};
+
 // ------------------------- tipos públicos (lista AGORA) -------------------------
 
 export type InstanciaResumo = {

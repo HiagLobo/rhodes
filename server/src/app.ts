@@ -12,6 +12,7 @@ import type DatabaseType from 'better-sqlite3';
 
 import type { Db } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
+import { calendarioRoutes } from './routes/calendario.js';
 import { catalogoRoutes } from './routes/catalogo.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { fotosRoutes } from './routes/fotos.js';
@@ -60,6 +61,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(vistoriaRoutes, { db: opts.db });
   app.register(dashboardRoutes, { db: opts.db });
   app.register(justificativasRoutes, { db: opts.db });
+  app.register(calendarioRoutes, { db: opts.db });
   app.register(fotosRoutes, {
     db: opts.db,
     dataDir: opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev'),
