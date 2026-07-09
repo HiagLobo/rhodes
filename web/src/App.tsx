@@ -24,6 +24,8 @@ import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Calendario } from './pages/gestor/Calendario';
 import { Demeritos } from './pages/gestor/Demeritos';
+import { Score } from './pages/gestor/Score';
+import { ScoreConfig } from './pages/gestor/ScoreConfig';
 import { Justificativas } from './pages/gestor/Justificativas';
 import { Fila } from './pages/vistoria/Fila';
 import { Inspecao } from './pages/vistoria/Inspecao';
@@ -90,6 +92,9 @@ function Shell() {
             <Button component={Link} to="/agora" variant="subtle" size="compact-md">
               Agora
             </Button>
+            <Button component={Link} to="/score" variant="subtle" size="compact-md">
+              Score
+            </Button>
             {usuario.role !== 'VISTORIADOR' && (
               <Button component={Link} to="/navios" variant="subtle" size="compact-md">
                 Navios
@@ -118,6 +123,9 @@ function Shell() {
                 </Button>
                 <Button component={Link} to="/gestor/demeritos" variant="subtle" size="compact-md">
                   Deméritos
+                </Button>
+                <Button component={Link} to="/gestor/score-config" variant="subtle" size="compact-md">
+                  Pesos
                 </Button>
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
@@ -158,6 +166,7 @@ export function AppRoutes() {
         <Route element={<Shell />}>
           <Route index element={<Inicio />} />
           <Route path="/agora" element={<Agora />} />
+          <Route path="/score" element={<Score />} />
           <Route path="/tarefas/:id" element={<Tarefa />} />
           <Route path="/navios" element={<Navios />} />
           <Route path="/vistoria" element={<Fila />} />
@@ -168,6 +177,7 @@ export function AppRoutes() {
           <Route path="/gestor/justificativas" element={<Justificativas />} />
           <Route path="/gestor/calendario" element={<Calendario />} />
           <Route path="/gestor/demeritos" element={<Demeritos />} />
+          <Route path="/gestor/score-config" element={<ScoreConfig />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
