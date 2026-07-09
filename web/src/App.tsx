@@ -28,6 +28,7 @@ import { ExternalAudit } from './pages/gestor/ExternalAudit';
 import { Score } from './pages/gestor/Score';
 import { ScoreConfig } from './pages/gestor/ScoreConfig';
 import { Justificativas } from './pages/gestor/Justificativas';
+import { Relatorios } from './pages/gestor/Relatorios';
 import { Fila } from './pages/vistoria/Fila';
 import { Inspecao } from './pages/vistoria/Inspecao';
 import { Procedimentos } from './pages/gestor/Procedimentos';
@@ -131,6 +132,9 @@ function Shell() {
                 <Button component={Link} to="/gestor/external-audit" variant="subtle" size="compact-md">
                   Nota externa
                 </Button>
+                <Button component={Link} to="/gestor/relatorios" variant="subtle" size="compact-md">
+                  Relatórios
+                </Button>
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
                 </Button>
@@ -183,6 +187,7 @@ export function AppRoutes() {
           <Route path="/gestor/demeritos" element={<Demeritos />} />
           <Route path="/gestor/score-config" element={<ScoreConfig />} />
           <Route path="/gestor/external-audit" element={<ExternalAudit />} />
+          <Route path="/gestor/relatorios" element={<Relatorios />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
