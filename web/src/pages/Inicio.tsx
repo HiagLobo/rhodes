@@ -15,7 +15,9 @@ import {
   Title,
 } from '@mantine/core';
 import {
+  bandaDoScore,
   grupoDaArea,
+  type BandaScore,
   type DashboardPayload,
   type GrupoGrade,
   type InstanciaResumo,
@@ -32,6 +34,14 @@ const COR_SITUACAO: Record<SituacaoGrupo, string> = {
   HOJE: BANDAS.atencao,
   FUTURA: BANDAS.bom,
   NENHUMA: BANDAS.excelente,
+};
+
+/** Banda do score → cor (Onda 08). */
+export const COR_BANDA: Record<BandaScore, string> = {
+  EXCELENTE: BANDAS.excelente,
+  BOM: BANDAS.bom,
+  ATENCAO: BANDAS.atencao,
+  CRITICO: BANDAS.critico,
 };
 
 type Estado =
@@ -100,7 +110,13 @@ export function Inicio() {
                 valor={estado.dash.cartoes.aguardandoVistoria}
                 cor={BANDAS.bom}
               />
-              <Cartao titulo="Score 30d" valor="—" cor="#495057" nota="a partir da Onda 08" />
+              <Cartao
+                titulo="Score 30d"
+                valor={estado.dash.cartoes.score30d === null ? '—' : Math.round(estado.dash.cartoes.score30d)}
+                cor={estado.dash.cartoes.score30d === null ? '#495057' : COR_BANDA[bandaDoScore(estado.dash.cartoes.score30d)]}
+                nota={estado.dash.cartoes.score30d === null ? 'sem dado ainda' : 'ver detalhe'}
+                onClick={() => navigate('/score')}
+              />
             </SimpleGrid>
 
             {estado.dash.rodada && (
@@ -192,14 +208,21 @@ function Cartao({
   valor,
   cor,
   nota,
+  onClick,
 }: {
   titulo: string;
   valor: number | string;
   cor: string;
   nota?: string;
+  onClick?: () => void;
 }) {
   return (
-    <Paper withBorder p="md" style={{ borderTopColor: cor, borderTopWidth: 6 }}>
+    <Paper
+      withBorder
+      p="md"
+      style={{ borderTopColor: cor, borderTopWidth: 6, cursor: onClick ? 'pointer' : undefined }}
+      onClick={onClick}
+    >
       <Text size="sm" fw={700} c="dimmed">
         {titulo}
       </Text>

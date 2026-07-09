@@ -121,7 +121,8 @@ describe('GET /api/dashboard', () => {
     const d = await dash(ctx, gestor);
     expect(d.cartoes.atrasadas).toBe(1); // só a OVERDUE
     expect(d.cartoes.hoje).toBeGreaterThanOrEqual(1); // a carência entra em Hoje
-    expect(d.cartoes.score30d).toBeNull();
+    // score30d agora é calculado (Onda 08): number quando há cobertura, ou null; nunca undefined
+    expect(d.cartoes.score30d === null || typeof d.cartoes.score30d === 'number').toBe(true);
 
     // a carência caiu num grupo com situação ATENÇÃO (HOJE), não bom
     const grupoCarencia = grupoDaArea(

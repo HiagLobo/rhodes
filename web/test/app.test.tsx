@@ -99,7 +99,7 @@ describe('dashboard "Agora" — 3 estados', () => {
     expect(screen.getByText('Moegas')).toBeDefined();
     expect(screen.getByText('Silos')).toBeDefined();
     expect(screen.getByText(/rodada 4 de 9/)).toBeDefined();
-    expect(screen.getByText(/a partir da Onda 08/)).toBeDefined();
+    expect(screen.getByText(/sem dado ainda/)).toBeDefined(); // score30d null
   });
 
   it('mostra erro com "tentar novamente" quando o painel falha', async () => {

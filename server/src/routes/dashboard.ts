@@ -18,6 +18,7 @@ import {
 import type { Db } from '../db/index.js';
 import { areas, inspections, justificativas, shipOperations, taskInstances, taskTemplates } from '../db/schema.js';
 import { requireUser } from '../lib/auth.js';
+import { calcularScoreDaJanela } from './score.js';
 
 /**
  * Filtro de dependência física (Onda 06/S3): a instância dependente de uma rodada só é
@@ -121,12 +122,15 @@ export const dashboardRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, do
       };
     }
 
+    // Score oficial 30d (Onda 08) — recompute on-read; null quando ainda não há dado.
+    const score30d = calcularScoreDaJanela(db, 30, new Date()).score;
+
     return {
       cartoes: {
         atrasadas,
         hoje: hojeCount,
         aguardandoVistoria,
-        score30d: null, // Onda 08
+        score30d,
       },
       grade,
       rodada,

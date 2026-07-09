@@ -21,6 +21,7 @@ import { healthRoutes } from './routes/health.js';
 import { justificativasRoutes } from './routes/justificativas.js';
 import { instanciasRoutes } from './routes/instancias.js';
 import { naviosRoutes } from './routes/navios.js';
+import { scoreRoutes } from './routes/score.js';
 import { usuariosRoutes } from './routes/usuarios.js';
 import { vistoriaRoutes } from './routes/vistoria.js';
 
@@ -64,6 +65,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(justificativasRoutes, { db: opts.db });
   app.register(calendarioRoutes, { db: opts.db });
   app.register(demeritosRoutes, { db: opts.db });
+  app.register(scoreRoutes, { db: opts.db });
   app.register(fotosRoutes, {
     db: opts.db,
     dataDir: opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev'),
