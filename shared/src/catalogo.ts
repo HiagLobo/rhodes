@@ -74,6 +74,8 @@ export type Procedimento = {
   leadDays: number | null;
   limitacoes: string | null;
   dependsOnTemplateId: number | null;
+  /** Intervalo mínimo (min) entre a foto ANTES e a DEPOIS — anti-fraude (Onda 05). */
+  minFotosIntervaloMin: number;
   ativo: boolean;
   metodoAtual: MetodoVersao | null;
 };
@@ -104,6 +106,8 @@ const camposOperacionais = {
   shipPhase: shipPhaseSchema.nullable(),
   leadDays: z.number().int().min(0).max(30).nullable(),
   limitacoes: z.string().trim().min(1).max(1000).nullable(),
+  // mín. 1: zero desligaria o anti-fraude da Onda 05 em silêncio.
+  minFotosIntervaloMin: z.number().int().min(1).max(240),
 };
 
 export const criarProcedimentoSchema = z.object({
@@ -114,6 +118,7 @@ export const criarProcedimentoSchema = z.object({
   shipPhase: shipPhaseSchema.nullable().optional(),
   leadDays: camposOperacionais.leadDays.optional(),
   limitacoes: camposOperacionais.limitacoes.optional(),
+  minFotosIntervaloMin: camposOperacionais.minFotosIntervaloMin.optional(),
   metodo: z.string().trim().min(1).max(5000),
 });
 export type CriarProcedimentoPayload = z.infer<typeof criarProcedimentoSchema>;
@@ -129,6 +134,7 @@ export const editarProcedimentoSchema = z
     shipPhase: shipPhaseSchema.nullable().optional(),
     leadDays: camposOperacionais.leadDays.optional(),
     limitacoes: camposOperacionais.limitacoes.optional(),
+    minFotosIntervaloMin: camposOperacionais.minFotosIntervaloMin.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Nada para editar.' });
 export type EditarProcedimentoPayload = z.infer<typeof editarProcedimentoSchema>;

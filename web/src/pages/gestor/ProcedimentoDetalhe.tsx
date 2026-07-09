@@ -57,6 +57,7 @@ export function ProcedimentoDetalhe() {
     shipPhase: 'POST_OPERATION' as ShipPhase,
     leadDays: 2,
     limitacoes: '',
+    minFotosIntervaloMin: 5,
   });
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -76,6 +77,7 @@ export function ProcedimentoDetalhe() {
           shipPhase: proc.shipPhase ?? 'POST_OPERATION',
           leadDays: proc.leadDays ?? 2,
           limitacoes: proc.limitacoes ?? '',
+          minFotosIntervaloMin: proc.minFotosIntervaloMin,
         });
       })
       .catch(() => setEstado({ fase: 'erro' }));
@@ -118,6 +120,7 @@ export function ProcedimentoDetalhe() {
           frequency: form.frequency,
           scheduleMode: form.scheduleMode,
           graceDays: form.graceDays,
+          minFotosIntervaloMin: form.minFotosIntervaloMin,
           triggerType: form.triggerType,
           ...(form.triggerType !== 'CALENDAR'
             ? { shipPhase: form.shipPhase, leadDays: form.leadDays }
@@ -227,6 +230,14 @@ export function ProcedimentoDetalhe() {
                 max={60}
                 value={form.graceDays}
                 onChange={(v) => setForm({ ...form, graceDays: Number(v) || 0 })}
+              />
+              <NumberInput
+                label="Mín. entre fotos (min)"
+                description="Intervalo mínimo entre ANTES e DEPOIS"
+                min={1}
+                max={240}
+                value={form.minFotosIntervaloMin}
+                onChange={(v) => setForm({ ...form, minFotosIntervaloMin: Number(v) || 1 })}
               />
             </Group>
             <Group grow>

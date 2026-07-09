@@ -21,7 +21,7 @@ import type { Db } from '../db/index.js';
 import { areas, metodoVersoes, taskTemplates, users } from '../db/schema.js';
 import { audit } from '../lib/audit.js';
 import { requireRole, requireUser } from '../lib/auth.js';
-import { abertaDoTemplate, criarInstancia } from '../services/scheduler/instancias.js';
+import { abertaDoTemplate, criarInstancia, reancorarAberta } from '../services/scheduler/instancias.js';
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
 const listaQuerySchema = z.object({
@@ -104,6 +104,7 @@ export const catalogoRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
       leadDays: t.leadDays,
       limitacoes: t.limitacoes,
       dependsOnTemplateId: t.dependsOnTemplateId,
+      minFotosIntervaloMin: t.minFotosIntervaloMin,
       ativo: t.ativo,
       metodoAtual: metodoDe(t.id, t.metodoVersaoAtualId),
     };
@@ -232,6 +233,7 @@ export const catalogoRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
         shipPhase: finalCampos.triggerType === 'CALENDAR' ? null : finalCampos.shipPhase,
         leadDays: finalCampos.triggerType === 'CALENDAR' ? null : (d.leadDays ?? 2),
         limitacoes: d.limitacoes ?? null,
+        minFotosIntervaloMin: d.minFotosIntervaloMin ?? 5,
       })
       .returning()
       .get();
@@ -285,37 +287,61 @@ export const catalogoRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, don
     const problema = inconsistenciaGatilho({ triggerType: triggerFinal, shipPhase: shipPhaseFinal });
     if (problema) return reply.status(400).send({ erro: problema });
 
-    const depois = db
-      .update(taskTemplates)
-      .set({
-        areaId: d.areaId ?? antes.areaId,
-        atividade: d.atividade ?? antes.atividade,
-        frequency: frequencyFinal,
-        // frequência muda → intervalo SEMPRE re-derivado; tolerância volta ao default da
-        // regra dos 10% a menos que o gestor mande graceDays explícito (imutável 4).
-        intervalDays: INTERVALO_DIAS[frequencyFinal],
-        graceDays: d.graceDays ?? (mudouFrequencia ? graceDefault(frequencyFinal) : antes.graceDays),
-        scheduleMode:
-          d.scheduleMode ?? (mudouFrequencia ? scheduleModeDefault(frequencyFinal) : antes.scheduleMode),
-        triggerType: triggerFinal,
-        shipPhase: shipPhaseFinal,
-        leadDays:
-          triggerFinal === 'CALENDAR' ? null : (d.leadDays !== undefined ? d.leadDays : (antes.leadDays ?? 2)),
-        limitacoes: d.limitacoes !== undefined ? d.limitacoes : antes.limitacoes,
-      })
-      .where(eq(taskTemplates.id, antes.id))
-      .returning()
-      .get()!;
+    const ator = { id: req.user!.id, login: req.user!.login };
+    // Template + reancoragem da instância aberta numa SÓ transação (política definitiva da
+    // Onda 07/S4 substitui a provisória da 02): editar frequência/modo/carência realinha a
+    // aberta; método continua sendo versão nova (rota própria) que não toca a instância.
+    const depois = db.transaction((tx) => {
+      const t = tx as unknown as Db;
+      const editado = t
+        .update(taskTemplates)
+        .set({
+          areaId: d.areaId ?? antes.areaId,
+          atividade: d.atividade ?? antes.atividade,
+          frequency: frequencyFinal,
+          // frequência muda → intervalo SEMPRE re-derivado; tolerância volta ao default da
+          // regra dos 10% a menos que o gestor mande graceDays explícito (imutável 4).
+          intervalDays: INTERVALO_DIAS[frequencyFinal],
+          graceDays: d.graceDays ?? (mudouFrequencia ? graceDefault(frequencyFinal) : antes.graceDays),
+          scheduleMode:
+            d.scheduleMode ?? (mudouFrequencia ? scheduleModeDefault(frequencyFinal) : antes.scheduleMode),
+          triggerType: triggerFinal,
+          shipPhase: shipPhaseFinal,
+          leadDays:
+            triggerFinal === 'CALENDAR' ? null : (d.leadDays !== undefined ? d.leadDays : (antes.leadDays ?? 2)),
+          limitacoes: d.limitacoes !== undefined ? d.limitacoes : antes.limitacoes,
+          minFotosIntervaloMin: d.minFotosIntervaloMin ?? antes.minFotosIntervaloMin,
+        })
+        .where(eq(taskTemplates.id, antes.id))
+        .returning()
+        .get()!;
 
-    audit(db, {
-      ator: { id: req.user!.id, login: req.user!.login },
-      acao: 'PROCEDIMENTO_EDITADO',
-      entidade: 'task_templates',
-      entidadeId: antes.id,
-      antes: operacional(antes),
-      depois: operacional(depois),
-      ip: req.ip,
+      audit(t, {
+        ator,
+        acao: 'PROCEDIMENTO_EDITADO',
+        entidade: 'task_templates',
+        entidadeId: antes.id,
+        antes: operacional(antes),
+        depois: operacional(editado),
+        ip: req.ip,
+      });
+
+      reancorarAberta(
+        t,
+        editado,
+        {
+          frequency: antes.frequency,
+          scheduleMode: antes.scheduleMode,
+          intervalDays: antes.intervalDays,
+          graceDays: antes.graceDays,
+        },
+        ator,
+        new Date(),
+        req.ip,
+      );
+      return editado;
     });
+
     return reply.send(toProcedimento(depois));
   });
 

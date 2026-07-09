@@ -95,6 +95,7 @@ function proc(p: Partial<Procedimento> & { id: number; areaId: number }): Proced
     leadDays: null,
     limitacoes: null,
     dependsOnTemplateId: null,
+    minFotosIntervaloMin: 5,
     ativo: true,
     metodoAtual: { id: p.id * 10, versao: 1, texto: `Método ${p.id}`, criadoEm: '2026-07-08T12:00:00.000Z', criadoPor: null },
     ...p,
