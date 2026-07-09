@@ -78,6 +78,13 @@
       "when": 1783553383265,
       "tag": "0010_inspecoes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1783571740595,
+      "tag": "0011_justificativa_classificacao",
+      "breakpoints": true
     }
   ]
 }

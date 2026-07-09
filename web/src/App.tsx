@@ -21,6 +21,7 @@ import { Navios } from './pages/Navios';
 import { Tv } from './pages/Tv';
 import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
+import { Justificativas } from './pages/gestor/Justificativas';
 import { Fila } from './pages/vistoria/Fila';
 import { Inspecao } from './pages/vistoria/Inspecao';
 import { Procedimentos } from './pages/gestor/Procedimentos';
@@ -106,6 +107,9 @@ function Shell() {
                 >
                   Plano Mestre
                 </Button>
+                <Button component={Link} to="/gestor/justificativas" variant="subtle" size="compact-md">
+                  Justificativas
+                </Button>
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
                 </Button>
@@ -151,6 +155,7 @@ export function AppRoutes() {
           <Route path="/gestor/usuarios" element={<Usuarios />} />
           <Route path="/gestor/procedimentos" element={<Procedimentos />} />
           <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
+          <Route path="/gestor/justificativas" element={<Justificativas />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,0 +1,1 @@
+ALTER TABLE `justificativas` ADD `classificacao` text;

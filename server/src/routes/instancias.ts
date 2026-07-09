@@ -33,6 +33,7 @@ import {
   onComplete,
   onJustify,
 } from '../services/scheduler/on-complete.js';
+import { justificativaResumo } from './justificativas.js';
 import { paraInspecaoResumo } from './vistoria.js';
 import {
   EvidenciaInvalidaError,
@@ -232,16 +233,7 @@ export const instanciasRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, d
         .where(eq(justificativas.instanceId, row.inst.id))
         .get();
       if (!r) return null;
-      return {
-        id: r.j.id,
-        instanceId: r.j.instanceId,
-        motivo: r.j.motivo as JustificativaResumo['motivo'],
-        texto: r.j.texto,
-        fotoId: r.j.fotoId,
-        status: r.j.status as JustificativaResumo['status'],
-        criadoPor: r.criadoPor,
-        criadoEm: r.j.criadoEm.toISOString(),
-      };
+      return justificativaResumo(r.j, r.criadoPor, null);
     })();
 
     const detalhe: InstanciaDetalhe = {

@@ -38,7 +38,7 @@ function mensagemDe(err: unknown): string {
 }
 
 /** Rótulos no vocabulário do pátio (o código é o contrato; o rótulo é conversa). */
-const MOTIVO_LABEL: Record<MotivoJustificativa, string> = {
+export const MOTIVO_LABEL: Record<MotivoJustificativa, string> = {
   NAVIO_OPERANDO: 'Navio operando na área',
   CHUVA: 'Chuva',
   AREA_INTERDITADA: 'Área interditada',

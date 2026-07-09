@@ -290,6 +290,8 @@ export const justificativas = sqliteTable('justificativas', {
   decididoPorId: integer('decidido_por_id').references(() => users.id),
   decididoEm: integer('decidido_em', { mode: 'timestamp' }),
   decisaoObs: text('decisao_obs'),
+  // Onda 07/S3: EXTERNA|INTERNA gravada NA DECISÃO — a Onda 08 lê para o denominador do score.
+  classificacao: text('classificacao'),
 });
 
 /**
