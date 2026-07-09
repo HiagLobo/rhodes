@@ -101,6 +101,31 @@ export type EventoInspecao = {
 
 export type DemeritoInput = { areaId: number; severidade: Severidade; dataRecife: string };
 
+/** Só CRITICA/MAIOR geram demérito (MENOR = 0 — decisão da onda). */
+export const SEVERIDADES_DEMERITO = ['CRITICA', 'MAIOR'] as const;
+
+/** Item da fila de confirmação: reprovação grave SEM demérito confirmado ainda. */
+export type DemeritoPendente = {
+  inspectionId: number;
+  instanceId: number;
+  areaId: number;
+  areaNome: string;
+  atividade: string;
+  severidade: Severidade;
+  vistoriador: string | null;
+  criadoEm: string;
+};
+
+/** Demérito já confirmado (extrato). */
+export type DemeritoConfirmado = {
+  id: number;
+  inspectionId: number;
+  areaNome: string;
+  severidade: Severidade;
+  confirmadoPor: string | null;
+  criadoEm: string;
+};
+
 export type AreaPeso = { areaId: number; nome: string; peso: number };
 
 export type EntradaScore = {

@@ -23,6 +23,7 @@ import { Tv } from './pages/Tv';
 import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Calendario } from './pages/gestor/Calendario';
+import { Demeritos } from './pages/gestor/Demeritos';
 import { Justificativas } from './pages/gestor/Justificativas';
 import { Fila } from './pages/vistoria/Fila';
 import { Inspecao } from './pages/vistoria/Inspecao';
@@ -115,6 +116,9 @@ function Shell() {
                 <Button component={Link} to="/gestor/justificativas" variant="subtle" size="compact-md">
                   Justificativas
                 </Button>
+                <Button component={Link} to="/gestor/demeritos" variant="subtle" size="compact-md">
+                  Deméritos
+                </Button>
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
                 </Button>
@@ -163,6 +167,7 @@ export function AppRoutes() {
           <Route path="/gestor/procedimentos/:id" element={<ProcedimentoDetalhe />} />
           <Route path="/gestor/justificativas" element={<Justificativas />} />
           <Route path="/gestor/calendario" element={<Calendario />} />
+          <Route path="/gestor/demeritos" element={<Demeritos />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
