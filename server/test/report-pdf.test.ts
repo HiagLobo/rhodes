@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Writable } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
@@ -187,6 +187,16 @@ describe('gerarDossiePdf', () => {
     const resumo = await gerarDossiePdf(vazio, carregarOk, stream);
     expect(buffer().subarray(0, 5).toString('latin1')).toBe('%PDF-');
     expect(resumo.paginasEvidencia).toBe(0);
+  });
+
+  it('destino destruído no meio (abort do cliente) → rejeita sem derrubar o processo', async () => {
+    const pass = new PassThrough();
+    pass.on('data', () => {
+      if (!pass.destroyed) pass.destroy(); // simula o cliente abortando ao receber os primeiros bytes
+    });
+    // O handler passivo de `finalizado` evita a unhandled rejection (que no Node 24 mataria o processo);
+    // a geração termina rejeitando de forma controlada.
+    await expect(gerarDossiePdf(dossieFake(), carregarOk, pass)).rejects.toBeDefined();
   });
 });
 

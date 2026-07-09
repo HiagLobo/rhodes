@@ -86,6 +86,11 @@ export async function gerarDossiePdf(
     streamFinished(destino, (err) => (err ? reject(err) : resolve()));
     doc.on('error', reject);
   });
+  // Handler PASSIVO desde já: se o cliente abortar o download DURANTE o laço de fotos (antes de o
+  // fluxo chegar ao `await finalizado`), `finalizado` rejeita — sem este handler seria uma unhandled
+  // rejection que, no Node 24 (--unhandled-rejections=throw), DERRUBA o processo. O `await` abaixo
+  // continua lançando normalmente para o catch fazer o teardown.
+  finalizado.catch(() => {});
   doc.pipe(destino);
 
   const sha256Usados: string[] = [];

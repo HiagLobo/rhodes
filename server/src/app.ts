@@ -22,6 +22,7 @@ import { healthRoutes } from './routes/health.js';
 import { justificativasRoutes } from './routes/justificativas.js';
 import { instanciasRoutes } from './routes/instancias.js';
 import { naviosRoutes } from './routes/navios.js';
+import { relatorioRoutes } from './routes/relatorios.js';
 import { scoreRoutes } from './routes/score.js';
 import { scoreConfigRoutes } from './routes/score-config.js';
 import { usuariosRoutes } from './routes/usuarios.js';
@@ -70,10 +71,10 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(scoreRoutes, { db: opts.db });
   app.register(scoreConfigRoutes, { db: opts.db });
   app.register(externalAuditRoutes, { db: opts.db });
-  app.register(fotosRoutes, {
-    db: opts.db,
-    dataDir: opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev'),
-  });
+  // Mesma raiz de fotos para servir e para o dossiê (senão as fotos "somem" só no PDF).
+  const dataDir = opts.dataDir ?? path.join(os.tmpdir(), 'rhodes-fotos-dev');
+  app.register(fotosRoutes, { db: opts.db, dataDir });
+  app.register(relatorioRoutes, { db: opts.db, dataDir });
 
   const staticRoot =
     opts.staticRoot !== undefined
