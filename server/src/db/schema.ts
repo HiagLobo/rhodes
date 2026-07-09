@@ -323,6 +323,61 @@ export const inspections = sqliteTable('inspections', {
 });
 
 /**
+ * Deméritos confirmados (Onda 08/S2) — o 2º gate da dupla confirmação: a reprovação do
+ * vistoriador (inspections) é a 1ª; o GESTOR confirma aqui e só então o demérito pesa no
+ * score. 1 por reprovação (UNIQUE); MENOR nunca gera. APPEND-ONLY (triggers na migração 0012).
+ */
+export const demeritos = sqliteTable('demeritos', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  inspectionId: integer('inspection_id')
+    .notNull()
+    .unique()
+    .references(() => inspections.id),
+  areaId: integer('area_id')
+    .notNull()
+    .references(() => areas.id),
+  severidade: text('severidade').notNull(), // CRITICA | MAIOR
+  confirmadoPorId: integer('confirmado_por_id')
+    .notNull()
+    .references(() => users.id),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Inspeção externa (Onda 08/S2) — a nota da Salso/Ambev, variável dependente da calibração do
+ * score (a métrica-mestre, defesa contra a Lei de Goodhart). APPEND-ONLY (migração 0012).
+ */
+export const externalAudit = sqliteTable('external_audit', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  orgao: text('orgao').notNull(), // SALSO | AMBEV
+  dataInspecao: text('data_inspecao').notNull(), // YYYY-MM-DD
+  nota: real('nota').notNull(),
+  observacao: text('observacao'),
+  criadoPorId: integer('criado_por_id')
+    .notNull()
+    .references(() => users.id),
+  criadoEm: integer('criado_em', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Achados de uma inspeção externa (Onda 08/S2) — tabela filha (não JSON) para consultar por
+ * área. APPEND-ONLY (migração 0012).
+ */
+export const externalAuditAchados = sqliteTable('external_audit_achados', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  auditId: integer('audit_id')
+    .notNull()
+    .references(() => externalAudit.id),
+  areaId: integer('area_id').references(() => areas.id),
+  severidade: text('severidade').notNull(),
+  descricao: text('descricao').notNull(),
+});
+
+/**
  * Trilha de auditoria (Onda 01/S2) — APPEND-ONLY, imposto por triggers na migração 0002
  * (UPDATE/DELETE → RAISE(ABORT)). Toda ação significativa entra aqui via o helper audit().
  * `ator_login` é cópia textual: o registro continua atribuível mesmo se o usuário mudar (ALCOA "A").

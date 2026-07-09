@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { Classificacao } from './justificativa.js';
 import type { InstanceStatus } from './agendamento.js';
 import type { InspecaoResultado, Severidade } from './vistoria.js';
@@ -31,6 +33,32 @@ export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
   tetoJustificativasExecutantePct: 20,
   vistoriaAmostralPct: 10,
 };
+
+/**
+ * Zod do JSON `valores` de score_config (imutável 7). `scoreConfigInputSchema` é o que a UI do
+ * gestor (S5) envia — SEM `vistoriaAmostralPct`, que é mesclada no servidor a partir da linha
+ * vigente (senão a amostragem da Onda 06 regride). Campos com default = tolerância a linhas
+ * antigas que não os tinham.
+ */
+export const scoreConfigInputSchema = z.object({
+  pesos: z.object({
+    pontualidade: z.number().min(0).max(100),
+    aprovacao: z.number().min(0).max(100),
+    cobertura: z.number().min(0).max(100),
+  }),
+  gracaPontualidade: z.number().min(0).max(1).default(0.1),
+  demerito: z.object({
+    CRITICA: z.number().min(0).max(100),
+    MAIOR: z.number().min(0).max(100),
+    MENOR: z.number().min(0).max(100),
+  }),
+  tetoDemeritos: z.number().min(0).max(100).default(20),
+  tetoJustificativasExecutantePct: z.number().min(0).max(100).default(20),
+});
+
+export const scoreConfigSchema = scoreConfigInputSchema.extend({
+  vistoriaAmostralPct: z.number().min(0).max(100).default(10),
+});
 
 // --------------------------------------------------------------------------- bandas SQF
 

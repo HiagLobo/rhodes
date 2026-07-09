@@ -1,11 +1,11 @@
 import { pathToFileURL } from 'node:url';
 
 import { and, eq } from 'drizzle-orm';
-import { graceDefault, INTERVALO_DIAS, type Frequencia } from '@rhodes/shared';
+import { DEFAULT_SCORE_CONFIG, graceDefault, INTERVALO_DIAS, type Frequencia } from '@rhodes/shared';
 
 import { loadEnv } from '../lib/env.js';
 import { createDb, runMigrations, type Db } from './index.js';
-import { areas, metodoVersoes, taskTemplates } from './schema.js';
+import { areas, metodoVersoes, scoreConfig, taskTemplates } from './schema.js';
 
 /**
  * CHECKLIST VALIDADO COM A AMBEV — fonte: "Cópia de Checklist de Limpeza - Porto do Recife -
@@ -378,6 +378,16 @@ export function seedCatalogo(db: Db): void {
         .where(eq(taskTemplates.id, template.id))
         .run();
     }
+  }
+
+  // Score v1 (Onda 08/S2): 1ª linha de score_config com o DEFAULT completo — INCLUINDO
+  // vistoriaAmostralPct no MESMO JSON (senão lerPctAmostral, que pega a linha de maior id,
+  // regride ao default). Idempotente: só semeia se não houver nenhuma linha.
+  const jaTemConfig = db.select({ id: scoreConfig.id }).from(scoreConfig).all().length > 0;
+  if (!jaTemConfig) {
+    db.insert(scoreConfig)
+      .values({ valores: JSON.stringify(DEFAULT_SCORE_CONFIG), motivo: 'Score v1 (seed — Onda 08)' })
+      .run();
   }
 }
 
