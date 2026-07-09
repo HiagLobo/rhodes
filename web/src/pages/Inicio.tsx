@@ -114,7 +114,13 @@ export function Inicio() {
                 titulo="Score 30d"
                 valor={estado.dash.cartoes.score30d === null ? '—' : Math.round(estado.dash.cartoes.score30d)}
                 cor={estado.dash.cartoes.score30d === null ? '#495057' : COR_BANDA[bandaDoScore(estado.dash.cartoes.score30d)]}
-                nota={estado.dash.cartoes.score30d === null ? 'sem dado ainda' : 'ver detalhe'}
+                nota={
+                  estado.dash.cartoes.gap !== null
+                    ? `${estado.dash.cartoes.orgaoExterno} ${estado.dash.cartoes.notaExterna} · gap ${estado.dash.cartoes.gap > 0 ? '+' : ''}${Math.round(estado.dash.cartoes.gap)}`
+                    : estado.dash.cartoes.score30d === null
+                      ? 'sem dado ainda'
+                      : 'ver detalhe'
+                }
                 onClick={() => navigate('/score')}
               />
             </SimpleGrid>

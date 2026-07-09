@@ -81,8 +81,12 @@ export type DashboardPayload = {
     /** Abertas (PENDING/IN_PROGRESS) com due ≤ hoje — inclui a carência da janela dos 10%. */
     hoje: number;
     aguardandoVistoria: number;
-    /** Placeholder até a Onda 08 — a UI mostra "—". */
+    /** Score oficial 30d (Onda 08); null quando ainda não há dado. */
     score30d: number | null;
+    /** Gap score interno − nota externa mais recente (Onda 08); null sem nota registrada. */
+    gap: number | null;
+    notaExterna: number | null;
+    orgaoExterno: string | null;
   };
   /** Sempre na ordem de GRUPOS_PLANTA; "Outras" só entra quando tem área classificada nela. */
   grade: GrupoGrade[];

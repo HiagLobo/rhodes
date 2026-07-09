@@ -41,7 +41,7 @@ function resposta(status: number, corpo: unknown) {
 }
 
 const DASH = {
-  cartoes: { atrasadas: 4, hoje: 2, aguardandoVistoria: 1, score30d: null },
+  cartoes: { atrasadas: 4, hoje: 2, aguardandoVistoria: 1, score30d: null, gap: null, notaExterna: null, orgaoExterno: null },
   grade: [{ grupo: 'Moegas', situacao: 'OVERDUE', atrasadas: 4, hoje: 0, abertas: 4 }],
   rodada: null,
 };

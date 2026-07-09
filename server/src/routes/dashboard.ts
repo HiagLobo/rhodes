@@ -18,6 +18,7 @@ import {
 import type { Db } from '../db/index.js';
 import { areas, inspections, justificativas, shipOperations, taskInstances, taskTemplates } from '../db/schema.js';
 import { requireUser } from '../lib/auth.js';
+import { notaExternaMaisRecente } from './external-audit.js';
 import { calcularScoreDaJanela } from './score.js';
 
 /**
@@ -124,6 +125,9 @@ export const dashboardRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, do
 
     // Score oficial 30d (Onda 08) — recompute on-read; null quando ainda não há dado.
     const score30d = calcularScoreDaJanela(db, 30, new Date()).score;
+    // Gap interno×externo: score − nota da inspeção externa mais recente (por dataInspecao).
+    const externa = notaExternaMaisRecente(db);
+    const gap = externa !== null && score30d !== null ? score30d - externa.nota : null;
 
     return {
       cartoes: {
@@ -131,6 +135,9 @@ export const dashboardRoutes: FastifyPluginCallback<{ db: Db }> = (app, opts, do
         hoje: hojeCount,
         aguardandoVistoria,
         score30d,
+        gap,
+        notaExterna: externa?.nota ?? null,
+        orgaoExterno: externa?.orgao ?? null,
       },
       grade,
       rodada,

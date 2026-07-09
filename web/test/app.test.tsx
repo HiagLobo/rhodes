@@ -23,7 +23,7 @@ function resposta(status: number, corpo: unknown) {
 }
 
 const DASH = {
-  cartoes: { atrasadas: 3, hoje: 5, aguardandoVistoria: 2, score30d: null },
+  cartoes: { atrasadas: 3, hoje: 5, aguardandoVistoria: 2, score30d: null, gap: null, notaExterna: null, orgaoExterno: null },
   grade: [
     { grupo: 'Moegas', situacao: 'OVERDUE', atrasadas: 2, hoje: 0, abertas: 2 },
     { grupo: 'Silos', situacao: 'HOJE', atrasadas: 0, hoje: 3, abertas: 3 },

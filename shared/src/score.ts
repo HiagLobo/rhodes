@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { SEVERIDADES } from './vistoria.js';
 import type { Classificacao } from './justificativa.js';
 import type { InstanceStatus } from './agendamento.js';
 import type { InspecaoResultado, Severidade } from './vistoria.js';
@@ -124,6 +125,46 @@ export type DemeritoConfirmado = {
   severidade: Severidade;
   confirmadoPor: string | null;
   criadoEm: string;
+};
+
+// --------------------------------------------------------------------------- nota externa (Salso/Ambev)
+
+export const ORGAOS_EXTERNOS = ['SALSO', 'AMBEV'] as const;
+
+export const registrarExternalAuditSchema = z.object({
+  orgao: z.enum(ORGAOS_EXTERNOS),
+  dataInspecao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data no formato YYYY-MM-DD'),
+  nota: z.number().min(0).max(100),
+  observacao: z.string().trim().max(1000).optional(),
+  achados: z
+    .array(
+      z.object({
+        areaId: z.number().int().positive().nullable().optional(),
+        severidade: z.enum(SEVERIDADES),
+        descricao: z.string().trim().min(1).max(1000),
+      }),
+    )
+    .default([]),
+});
+
+export type RegistrarExternalAuditPayload = z.infer<typeof registrarExternalAuditSchema>;
+
+export type ExternalAuditAchado = {
+  areaId: number | null;
+  areaNome: string | null;
+  severidade: Severidade;
+  descricao: string;
+};
+
+export type ExternalAuditResumo = {
+  id: number;
+  orgao: string;
+  dataInspecao: string;
+  nota: number;
+  observacao: string | null;
+  criadoPor: string | null;
+  criadoEm: string;
+  achados: ExternalAuditAchado[];
 };
 
 export type AreaPeso = { areaId: number; nome: string; peso: number };

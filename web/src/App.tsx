@@ -24,6 +24,7 @@ import { Tarefa } from './pages/executante/Tarefa';
 import { ProcedimentoDetalhe } from './pages/gestor/ProcedimentoDetalhe';
 import { Calendario } from './pages/gestor/Calendario';
 import { Demeritos } from './pages/gestor/Demeritos';
+import { ExternalAudit } from './pages/gestor/ExternalAudit';
 import { Score } from './pages/gestor/Score';
 import { ScoreConfig } from './pages/gestor/ScoreConfig';
 import { Justificativas } from './pages/gestor/Justificativas';
@@ -127,6 +128,9 @@ function Shell() {
                 <Button component={Link} to="/gestor/score-config" variant="subtle" size="compact-md">
                   Pesos
                 </Button>
+                <Button component={Link} to="/gestor/external-audit" variant="subtle" size="compact-md">
+                  Nota externa
+                </Button>
                 <Button component={Link} to="/gestor/usuarios" variant="subtle" size="compact-md">
                   Usuários
                 </Button>
@@ -178,6 +182,7 @@ export function AppRoutes() {
           <Route path="/gestor/calendario" element={<Calendario />} />
           <Route path="/gestor/demeritos" element={<Demeritos />} />
           <Route path="/gestor/score-config" element={<ScoreConfig />} />
+          <Route path="/gestor/external-audit" element={<ExternalAudit />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
