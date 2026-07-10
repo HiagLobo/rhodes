@@ -47,17 +47,26 @@ export async function comprimirJpeg(original: Blob, ladoMax = 1920, qualidade = 
   return blob;
 }
 
-/** Monta o multipart do upload — separado para ser testável sem canvas/câmera. */
+/**
+ * Monta o multipart do upload — separado para ser testável sem canvas/câmera.
+ *
+ * `agora` é o relógio do aparelho **no momento do ENVIO** (o servidor calcula
+ * `skew_ms = servidor − deviceNow`, o drift do relógio — insumo antifraude da Onda 11).
+ * `capturedAtExplicito` é a hora da **CAPTURA**: online os dois coincidem, mas na fila offline
+ * (Onda 10) a foto é tirada horas antes de subir. Sem separar os dois, ou o skew explode (parece
+ * relógio adulterado) ou o `captured_at` vira a hora do envio (mata o sinal de "grau B").
+ */
 export function montarFormFoto(
   tipo: TipoFoto,
   comprimida: Blob,
   exif: ExifExtraido,
   agora: Date,
+  capturedAtExplicito?: string,
 ): FormData {
   const form = new FormData();
   // campos ANTES do binário — o servidor só enxerga fields que chegam antes do arquivo
   form.append('tipo', tipo);
-  form.append('capturedAt', exif.capturedAt ?? agora.toISOString());
+  form.append('capturedAt', capturedAtExplicito ?? exif.capturedAt ?? agora.toISOString());
   form.append('deviceNow', agora.toISOString());
   if (exif.exifDatetime) form.append('exifDatetime', exif.exifDatetime);
   if (exif.exifModel) form.append('exifModel', exif.exifModel);
@@ -65,18 +74,34 @@ export function montarFormFoto(
   return form;
 }
 
-/** Pipeline completo do cliente: EXIF → comprime → envia. */
+export type FotoPreparada = {
+  comprimida: Blob;
+  exif: ExifExtraido;
+  /** Hora da CAPTURA (EXIF quando existe; senão o relógio do aparelho no momento da foto). */
+  capturedAt: string;
+};
+
+/**
+ * EXIF → comprime. Fica separada do envio para a fila offline (Onda 10/S2) guardar o payload já
+ * pronto (nunca o original de 10 MB) e o `capturedAt` do momento certo.
+ */
+export async function prepararFoto(original: Blob, agora: Date = new Date()): Promise<FotoPreparada> {
+  const exif = await extrairExif(original);
+  const comprimida = await comprimirJpeg(original);
+  return { comprimida, exif, capturedAt: exif.capturedAt ?? agora.toISOString() };
+}
+
+/** Pipeline completo do cliente: EXIF → comprime → envia (caminho online). */
 export async function enviarFoto(
   instanciaId: number,
   tipo: TipoFoto,
   original: Blob,
 ): Promise<FotoResumo> {
-  const exif = await extrairExif(original);
-  const comprimida = await comprimirJpeg(original);
+  const { comprimida, exif, capturedAt } = await prepararFoto(original);
   const res = await fetch(`/api/instancias/${instanciaId}/fotos`, {
     method: 'POST',
     credentials: 'same-origin',
-    body: montarFormFoto(tipo, comprimida, exif, new Date()),
+    body: montarFormFoto(tipo, comprimida, exif, new Date(), capturedAt),
   });
   if (!res.ok) {
     const corpo = (await res.json().catch(() => null)) as ApiError['corpo'];
